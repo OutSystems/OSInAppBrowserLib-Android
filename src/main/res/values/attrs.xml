@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="backButtonSrc" format="reference" />
+    <attr name="forwardButtonSrc" format="reference" />
+    <attr name="urlColor" format="color" />
+    <attr name="toolbarColor" format="color" />
+</resources>

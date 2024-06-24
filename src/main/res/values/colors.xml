@@ -2,4 +2,9 @@
 <resources>
     <color name="navigation_button_dark_theme">#EAEAEA</color>
     <color name="tool_bar_dark_theme">#282828</color>
+    <color name="tool_bar_light_theme">#FFFFFF</color>
+    <color name="textPrimary">#000000</color>
+    <color name="textPrimaryDark">#FFFFFF</color>
+    <color name="urlPrimary">#3F3F3F</color>
+    <color name="urlPrimaryDark">#EAEAEA</color>
 </resources>

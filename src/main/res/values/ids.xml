@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <item name="back_button" type="id" />
+    <item name="forward_button" type="id" />
+    <item name="url_text" type="id" />
+    <item name="close_button" type="id" />
+    <item name="navigation_buttons" type="id" />
+</resources>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Close Button -->
+    <style name="CloseButton" parent="Widget.AppCompat.TextView">
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">?attr/colorPrimary</item>
+        <item name="android:textFontWeight">500</item>
+        <item name="android:id">@id/close_button</item>
+        <item name="android:backgroundTint">@android:color/transparent</item>
+        <item name="android:background">@android:color/transparent</item>
+    </style>
+</resources>

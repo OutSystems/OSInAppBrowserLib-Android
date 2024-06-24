@@ -2,72 +2,23 @@
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:fitsSystemWindows="true"
     android:orientation="vertical">
 
     <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
-        android:layout_height="?attr/actionBarSize"
-        android:background="?attr/colorPrimary"
-        android:elevation="4dp"
-        android:theme="@style/AppTheme.WebViewToolbar">
+        android:layout_height="?android:attr/actionBarSize"
+        style="@style/InAppToolBar"
+        app:contentInsetStart="0dp">
 
         <RelativeLayout
+            android:id="@+id/toolbar_content"
             android:layout_width="match_parent"
-            android:layout_height="match_parent">
-
-            <!-- Back button -->
-            <ImageButton
-                android:id="@+id/back_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/back_button_white"
-                android:contentDescription="@string/back_button"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:paddingEnd="16dp"
-                android:background="@null" />
-
-            <!-- Forward button -->
-            <ImageButton
-                android:id="@+id/forward_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@drawable/forward_button_white"
-                android:contentDescription="@string/forward_button"
-                android:layout_toEndOf="@id/back_button"
-                android:layout_centerVertical="true"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:background="@null" />
-
-            <!-- URL text -->
-            <TextView
-                android:id="@+id/url_text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_toEndOf="@id/forward_button"
-                android:layout_toStartOf="@id/close_button"
-                android:layout_centerVertical="true"
-                android:ellipsize="end"
-                android:maxLines="1"
-                android:textColor="@color/navigation_button_dark_theme"
-                android:singleLine="true"
-                android:scrollHorizontally="true" />
-
-            <!-- Close button -->
-            <Button
-                android:id="@+id/close_button"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_alignParentEnd="true"
-                android:layout_centerVertical="true"
-                android:background="@null"
-                android:textAllCaps="false"
-                android:textColor="@android:color/white"
-                android:padding="16dp" />
-        </RelativeLayout>
+            android:layout_height="match_parent"
+            android:paddingHorizontal="16dp" />
     </androidx.appcompat.widget.Toolbar>
 
     <!-- WebView -->
@@ -76,5 +27,21 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1" />
+
+    <!-- Bottom Toolbar -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/bottom_toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?android:attr/actionBarSize"
+        style="@style/InAppToolBar"
+        app:contentInsetStart="0dp">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:id="@+id/bottom_toolbar_content"
+            android:paddingHorizontal="16dp" />
+        
+    </androidx.appcompat.widget.Toolbar>
 
 </LinearLayout>

@@ -1,35 +1,36 @@
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.views
 
-import android.app.AlertDialog
+
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.CookieManager
-import android.webkit.JsPromptResult
-import android.webkit.JsResult
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
 import android.webkit.WebView
 import android.webkit.WebViewClient
-import android.widget.Button
-import android.widget.EditText
 import android.widget.ImageButton
+import android.widget.RelativeLayout
 import android.widget.TextView
+import androidx.annotation.StyleRes
 import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.view.isVisible
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 
 class OSIABWebViewActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
-    private lateinit var closeButton: Button
+    private lateinit var closeButton: TextView
     private lateinit var backButton: ImageButton
     private lateinit var forwardButton: ImageButton
     private lateinit var urlText: TextView
     private lateinit var toolbar: Toolbar
+    private lateinit var bottomToolbar: Toolbar
     private lateinit var options: OSIABWebViewOptions
     private lateinit var appName: String
 
@@ -51,16 +52,25 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         //get elements in screen
         webView = findViewById(R.id.webview)
-        closeButton = findViewById(R.id.close_button)
-        backButton = findViewById(R.id.back_button)
-        forwardButton = findViewById(R.id.forward_button)
-        urlText = findViewById(R.id.url_text)
-        toolbar = findViewById(R.id.toolbar)
 
-        // setup elements in screen
-        closeButton.text = options.closeButtonText.ifBlank { "Close" }
-        urlText.text = urlToOpen
+
+        toolbar = findViewById(R.id.toolbar)
+        bottomToolbar = findViewById(R.id.bottom_toolbar)
+
+        if (options.showToolbar) createToolbar(
+            options.toolbarPosition,
+            options.showNavigationButtons,
+            options.leftToRight,
+            options.showURL,
+            urlToOpen,
+            options.closeButtonText.ifBlank { "Close" }
+        )
+
+        //we'll always have the top toolbar, because of the Close button
         toolbar.isVisible = options.showToolbar
+
+        bottomToolbar.isVisible =
+            options.showToolbar && options.toolbarPosition != OSIABToolbarPosition.TOP
 
         // clear cache if necessary
         possiblyClearCacheOrSessionCookies()
@@ -71,20 +81,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
         if (urlToOpen != null) {
             webView.loadUrl(urlToOpen)
         }
-
-        closeButton.setOnClickListener {
-            webView.destroy()
-            finish()
-        }
-
-        backButton.setOnClickListener {
-            if (webView.canGoBack()) webView.goBack()
-        }
-
-        forwardButton.setOnClickListener {
-            if (webView.canGoForward()) webView.goForward()
-        }
-
     }
 
     override fun onPause() {
@@ -99,6 +95,14 @@ class OSIABWebViewActivity : AppCompatActivity() {
         if (options.pauseMedia) {
             webView.onResume()
         }
+    }
+
+    /**
+     * Helper function to update navigation button states
+     */
+    private fun updateNavigationButtons() {
+        updateNavigationButton(backButton, webView.canGoBack())
+        updateNavigationButton(forwardButton, webView.canGoForward())
     }
 
     /**
@@ -132,9 +136,13 @@ class OSIABWebViewActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 // store cookies after page finishes loading
                 storeCookies()
+                updateNavigationButtons()
             }
 
-            override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
+            override fun shouldOverrideUrlLoading(
+                view: WebView?,
+                request: WebResourceRequest?
+            ): Boolean {
                 val urlString = request?.url.toString()
                 return when {
                     // handle tel: links opening the appropriate app
@@ -159,11 +167,16 @@ class OSIABWebViewActivity : AppCompatActivity() {
                         urlText.text = urlString
                         true
                     }
+
                     else -> false
                 }
             }
 
-            override fun onReceivedError(view: WebView?, request: WebResourceRequest?, error: WebResourceError?) {
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
                 // show the default WebView error page
                 super.onReceivedError(view, request, error)
             }
@@ -174,7 +187,11 @@ class OSIABWebViewActivity : AppCompatActivity() {
              * @param urlString URL to be processed
              * @param isGooglePlayStore to determine if the URL is a Google Play Store link
              */
-            private fun launchIntent(intentAction: String, urlString: String, isGooglePlayStore: Boolean = false): Boolean {
+            private fun launchIntent(
+                intentAction: String,
+                urlString: String,
+                isGooglePlayStore: Boolean = false
+            ): Boolean {
                 val intent = Intent(intentAction).apply {
                     data = Uri.parse(urlString)
                     if (isGooglePlayStore) {
@@ -240,4 +257,161 @@ class OSIABWebViewActivity : AppCompatActivity() {
         CookieManager.getInstance().flush()
     }
 
+    /**
+     * Creates toolbar for the web view
+     * @param toolbarPosition the toolbar position on screen
+     * @param showNavigationButtons true, to show the back and forward buttons
+     * @param isLeftRight true, to set the navigation buttons on the left
+     * @param showURL true, to show the opened url
+     * @param urlToOpen the url the webview opens
+     * @param closeButtonText the text for the close button
+     */
+    private fun createToolbar(
+        toolbarPosition: OSIABToolbarPosition,
+        showNavigationButtons: Boolean,
+        isLeftRight: Boolean,
+        showURL: Boolean,
+        urlToOpen: String?,
+        closeButtonText: String
+    ) {
+        var content: RelativeLayout = toolbar.findViewById(R.id.toolbar_content)
+
+        closeButton = createCloseButton(closeButtonText, isLeftRight)
+        content.addView(closeButton)
+
+        if (toolbarPosition == OSIABToolbarPosition.BOTTOM) {
+            content = bottomToolbar.findViewById(R.id.bottom_toolbar_content)
+        }
+
+        // adds (or not) navigation buttons
+        if (showNavigationButtons) {
+            val nav = createNavigationButtons(isLeftRight)
+            content.addView(nav)
+        }
+
+        // if url text is visible
+        if (showURL) {
+            urlText = createUrlText(urlToOpen.orEmpty(), isLeftRight)
+            content.addView(urlText)
+        }
+    }
+
+    /**
+     * Creates a RelativeLayout.LayoutParams instance with the common settings (height, width and
+     * alignment)
+     * @return new instance of RelativeLayout.LayoutParams
+     */
+    private fun createCommonLayout(): RelativeLayout.LayoutParams {
+        val custom = RelativeLayout.LayoutParams(
+            RelativeLayout.LayoutParams.WRAP_CONTENT,
+            RelativeLayout.LayoutParams.WRAP_CONTENT
+        )
+        custom.addRule(RelativeLayout.CENTER_VERTICAL)
+        return custom
+    }
+
+    /**
+     * Creates the custom navigation buttons
+     * @param isLeftRight defines their placement, inside the toolbar
+     * if <code>true</code>, start of the toolbar, else at the end
+     * @return a RelativeLayout with the navigation buttons
+     */
+    private fun createNavigationButtons(isLeftRight: Boolean): RelativeLayout {
+        //we wrap the navigation buttons in a relative layout, so they're easier to manipulate
+        val nav: RelativeLayout = RelativeLayout(this).apply {
+            layoutParams = createCommonLayout().apply {
+                if (isLeftRight) addRule(RelativeLayout.ALIGN_PARENT_START)
+                else addRule(RelativeLayout.ALIGN_PARENT_END)
+
+            }
+            id = R.id.navigation_buttons
+            setPaddingRelative(0, 0, 0, 0)
+        }
+
+        backButton = createImageButton(R.style.NavigationButton_Back, createCommonLayout())
+        backButton.setOnClickListener {
+            if (webView.canGoBack()) {
+                webView.goBack()
+
+            }
+        }
+
+        nav.addView(backButton)
+        forwardButton =
+            createImageButton(R.style.NavigationButton_Forward, createCommonLayout().apply {
+                addRule(RelativeLayout.END_OF, R.id.back_button)
+            })
+        forwardButton.setOnClickListener {
+            if (webView.canGoForward()) {
+                webView.goForward()
+
+            }
+        }
+        nav.addView(forwardButton)
+        return nav
+    }
+
+    /**
+     * Creates the close button, with the specified text and placement
+     * @param withText the text in question
+     * @param isLeftRight button's placement, if true, on the right side of the toolbar
+     * @return a new TextView button
+     */
+    private fun createCloseButton(withText: String, isLeftRight: Boolean): TextView {
+        val params = createCommonLayout().apply {
+            if (isLeftRight) addRule(RelativeLayout.ALIGN_PARENT_END)
+            else addRule(RelativeLayout.ALIGN_PARENT_START)
+        }
+        val textView = createTextView(withText, R.style.CloseButton, params)
+        textView.setOnClickListener {
+            webView.destroy()
+            finish()
+        }
+        return textView
+    }
+
+    private fun createUrlText(url: String, isLeftRight: Boolean): TextView {
+        val params = createCommonLayout().apply {
+            if (isLeftRight) {
+                addRule(RelativeLayout.END_OF, R.id.navigation_buttons)
+                addRule(RelativeLayout.START_OF, R.id.close_button)
+            } else {
+                addRule(RelativeLayout.END_OF, R.id.close_button)
+                addRule(RelativeLayout.START_OF, R.id.navigation_buttons)
+            }
+        }
+        return createTextView(url, R.style.URLBar, params)
+    }
+
+    private fun createTextView(
+        withText: String,
+        @StyleRes style: Int,
+        params: RelativeLayout.LayoutParams
+    ): TextView {
+        return TextView(ContextThemeWrapper(this, style)).apply {
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+            text = withText
+            layoutParams = params
+        }
+    }
+
+    private fun createImageButton(
+        @StyleRes style: Int,
+        params: RelativeLayout.LayoutParams
+    ): ImageButton {
+        return ImageButton(ContextThemeWrapper(this, style)).apply {
+            layoutParams = params
+            isEnabled = false
+        }
+    }
+
+    // Helper function to apply styles based on enabled/disabled state
+    private fun updateNavigationButton(button: ImageButton, isEnabled: Boolean) {
+        button.isEnabled = isEnabled
+        if (isEnabled) {
+            button.alpha = 1.0f
+        } else {
+            button.alpha = 0.3f
+        }
+    }
 }
