@@ -7,8 +7,8 @@ import android.provider.Browser.EXTRA_APPLICATION_ID
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABRouter
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.canOpenURL
 
-class OSIABExternalBrowserRouterAdapter(private val context: Context) : OSIABRouter<Unit, Boolean> {
-    override fun handleOpen(url: String, options: Unit?, completionHandler: (Boolean) -> Unit) {
+class OSIABExternalBrowserRouterAdapter(private val context: Context) : OSIABRouter<Boolean> {
+    override fun handleOpen(url: String, completionHandler: (Boolean) -> Unit) {
         try {
             val uri = Uri.parse(url)
             if (!context.canOpenURL(uri)) {

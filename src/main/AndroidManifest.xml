@@ -23,7 +23,7 @@
 
     <application
         android:allowBackup="false"
-        android:usesCleartextTraffic="false">
+        android:supportsRtl="true">
         <activity
             android:name=".views.OSIABWebViewActivity"
             android:exported="false"

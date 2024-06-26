@@ -19,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.view.isVisible
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 
@@ -34,9 +35,13 @@ class OSIABWebViewActivity : AppCompatActivity() {
     private lateinit var options: OSIABWebViewOptions
     private lateinit var appName: String
 
+    // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the WebView
+    private var isFirstLoad = true
+
     companion object {
         const val WEB_VIEW_URL_EXTRA = "WEB_VIEW_URL_EXTRA"
         const val WEB_VIEW_OPTIONS_EXTRA = "WEB_VIEW_OPTIONS_EXTRA"
+        const val CALLBACK_ID_EXTRA = "CALLBACK_ID_EXTRA"
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -133,10 +138,14 @@ class OSIABWebViewActivity : AppCompatActivity() {
         val webViewClient = object : WebViewClient() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
-                super.onPageFinished(view, url)
+                if (isFirstLoad) {
+                    sendWebViewEvent(OSIABEvents.ACTION_BROWSER_PAGE_LOADED)
+                    isFirstLoad = false
+                }
                 // store cookies after page finishes loading
                 storeCookies()
                 updateNavigationButtons()
+                super.onPageFinished(view, url)
             }
 
             override fun shouldOverrideUrlLoading(
@@ -225,6 +234,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
         if (options.hardwareBack && webView.canGoBack()) {
             webView.goBack()
         } else {
+            sendWebViewEvent(OSIABEvents.ACTION_BROWSER_FINISHED)
             webView.destroy()
             super.onBackPressedDispatcher.onBackPressed()
         }
@@ -414,4 +424,12 @@ class OSIABWebViewActivity : AppCompatActivity() {
             button.alpha = 0.3f
         }
     }
+
+    /* Responsible for sending broadcasts.
+     * @param event String identifying the event to send in the broadcast.
+     */
+    private fun sendWebViewEvent(event: String) {
+        sendBroadcast(Intent(event))
+    }
+
 }
