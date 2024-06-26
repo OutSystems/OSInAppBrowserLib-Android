@@ -8,7 +8,6 @@ import org.junit.Assert.*
 
 class OSIABEngineTests {
     private val url = "https://www.outsystems.com/"
-
     private lateinit var externalBrowserRouterSpy : OSIABRouterSpy<Unit>
     private lateinit var webViewRouterSpy : OSIABRouterSpy<OSIABWebViewOptions>
 

@@ -17,4 +17,20 @@ data class OSIABWebViewOptions(
     @SerializedName("hardwareBack") val hardwareBack: Boolean = true,
     @SerializedName("pauseMedia") val pauseMedia: Boolean = true,
     @SerializedName("customUserAgent") val customUserAgent: String?
-) : Serializable
+) : Serializable {
+    constructor() : this(
+        true,
+        true,
+        true,
+        true,
+        false,
+        "Close",
+        OSIABToolbarPosition.TOP,
+        false,
+        true,
+        true,
+        true,
+        true,
+        null
+    )
+}

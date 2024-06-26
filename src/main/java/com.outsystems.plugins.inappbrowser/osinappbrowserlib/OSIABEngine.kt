@@ -5,10 +5,7 @@ import android.content.Intent
 import android.net.Uri
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 
-class OSIABEngine(
-    //private val externalBrowserRouter: OSIABRouter<Unit, Boolean>,
-    //private val webViewRouter: OSIABRouter<OSIABWebViewOptions, Boolean>
-) {
+class OSIABEngine {
 
     /**
      * Trigger the external browser to open the passed `url`.
@@ -24,8 +21,6 @@ class OSIABEngine(
      * Trigger the WebView to open the passed `url`.
      * @param url URL to be opened.
      * @param completionHandler The callback with the result of opening the url using the WebView.
-     * @param options WebView options to open the WebView with.
-     * @param callbackID optional ID associated to a call to the method.
      */
     fun openWebView(
         webViewRouter: OSIABRouter<Boolean>,
@@ -34,7 +29,6 @@ class OSIABEngine(
     ) {
         return webViewRouter.handleOpen(url, completionHandler)
     }
-
 }
 
 fun Context.canOpenURL(uri: Uri): Boolean {

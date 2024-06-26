@@ -3,6 +3,7 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib.views
 
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.webkit.CookieManager
 import android.webkit.WebChromeClient
@@ -18,10 +19,12 @@ import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.view.ContextThemeWrapper
 import androidx.core.view.isVisible
+import androidx.lifecycle.lifecycleScope
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
-import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
+import kotlinx.coroutines.launch
 
 class OSIABWebViewActivity : AppCompatActivity() {
 
@@ -41,7 +44,8 @@ class OSIABWebViewActivity : AppCompatActivity() {
     companion object {
         const val WEB_VIEW_URL_EXTRA = "WEB_VIEW_URL_EXTRA"
         const val WEB_VIEW_OPTIONS_EXTRA = "WEB_VIEW_OPTIONS_EXTRA"
-        const val CALLBACK_ID_EXTRA = "CALLBACK_ID_EXTRA"
+        const val DISABLED_ALPHA = 0.3f
+        const val ENABLED_ALPHA = 1.0f
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -51,7 +55,14 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         // get parameters from intent extras
         val urlToOpen = intent.extras?.getString(WEB_VIEW_URL_EXTRA)
-        options = intent.extras?.getSerializable(WEB_VIEW_OPTIONS_EXTRA) as OSIABWebViewOptions
+        options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.extras?.getSerializable(
+                WEB_VIEW_OPTIONS_EXTRA,
+                OSIABWebViewOptions::class.java
+            ) ?: OSIABWebViewOptions()
+        } else {
+            intent.extras?.getSerializable(WEB_VIEW_OPTIONS_EXTRA) as OSIABWebViewOptions
+        }
 
         setContentView(R.layout.activity_web_view)
 
@@ -139,7 +150,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 if (isFirstLoad) {
-                    sendWebViewEvent(OSIABEvents.ACTION_BROWSER_PAGE_LOADED)
+                    sendWebViewEvent(OSIABEvents.BrowserPageLoaded)
                     isFirstLoad = false
                 }
                 // store cookies after page finishes loading
@@ -234,7 +245,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
         if (options.hardwareBack && webView.canGoBack()) {
             webView.goBack()
         } else {
-            sendWebViewEvent(OSIABEvents.ACTION_BROWSER_FINISHED)
+            sendWebViewEvent(OSIABEvents.BrowserFinished)
             webView.destroy()
             super.onBackPressedDispatcher.onBackPressed()
         }
@@ -380,6 +391,12 @@ class OSIABWebViewActivity : AppCompatActivity() {
         return textView
     }
 
+    /**
+     * Creates the URL preview
+     * @param url the url text
+     * @param isLeftRight dictates the placement of the url
+     * @return the URL TextView
+     */
     private fun createUrlText(url: String, isLeftRight: Boolean): TextView {
         val params = createCommonLayout().apply {
             if (isLeftRight) {
@@ -393,6 +410,13 @@ class OSIABWebViewActivity : AppCompatActivity() {
         return createTextView(url, R.style.URLBar, params)
     }
 
+    /**
+     * Creates a TextView, with the given text, style and layout params
+     * @param withText the display text
+     * @param style the view's style id
+     * @param params relative layout params
+     * @return a new Text View
+     */
     private fun createTextView(
         withText: String,
         @StyleRes style: Int,
@@ -405,6 +429,12 @@ class OSIABWebViewActivity : AppCompatActivity() {
         }
     }
 
+    /**
+     * Creates a TextView, with the given style and layout params
+     * @param style the view's style id
+     * @param params relative layout params
+     * @return a new Image Button
+     */
     private fun createImageButton(
         @StyleRes style: Int,
         params: RelativeLayout.LayoutParams
@@ -415,21 +445,23 @@ class OSIABWebViewActivity : AppCompatActivity() {
         }
     }
 
-    // Helper function to apply styles based on enabled/disabled state
+    /**
+     * Helper function to apply styles based on enabled/disabled state
+     * @param button the button that will be enabled / disabled
+     * @param isEnabled whether to enabled or disable the button
+     */
     private fun updateNavigationButton(button: ImageButton, isEnabled: Boolean) {
         button.isEnabled = isEnabled
-        if (isEnabled) {
-            button.alpha = 1.0f
-        } else {
-            button.alpha = 0.3f
-        }
+        button.alpha = if (isEnabled) ENABLED_ALPHA else DISABLED_ALPHA
     }
 
-    /* Responsible for sending broadcasts.
+    /** Responsible for sending broadcasts.
      * @param event String identifying the event to send in the broadcast.
      */
-    private fun sendWebViewEvent(event: String) {
-        sendBroadcast(Intent(event))
+    private fun sendWebViewEvent(event: OSIABEvents) {
+        lifecycleScope.launch {
+            OSIABEvents.browserEvents.emit(event)
+        }
     }
 
 }

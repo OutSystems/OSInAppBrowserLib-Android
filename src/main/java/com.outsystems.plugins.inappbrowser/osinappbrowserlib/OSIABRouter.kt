@@ -8,5 +8,4 @@ interface OSIABRouter<ReturnType> {
      * @param completionHandler The callback with the result of opening the url.
      */
     fun handleOpen(url: String, completionHandler: (ReturnType) -> Unit)
-
 }
