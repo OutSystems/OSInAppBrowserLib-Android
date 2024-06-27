@@ -3,7 +3,6 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 
 class OSIABEngine {
 
@@ -13,7 +12,11 @@ class OSIABEngine {
      * @param completionHandler The callback with the result of opening the url using the External Browser.
      * @return Indicates if the operation was successful or not.
      */
-    fun openExternalBrowser(externalBrowserRouter: OSIABRouter<Boolean>, url: String, completionHandler: (Boolean) -> Unit) {
+    fun openExternalBrowser(
+        externalBrowserRouter: OSIABRouter<Boolean>,
+        url: String,
+        completionHandler: (Boolean) -> Unit
+    ) {
         return externalBrowserRouter.handleOpen(url, completionHandler)
     }
 

@@ -2,19 +2,18 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters
 
 import android.content.Context
 import android.content.Intent
-import androidx.lifecycle.LifecycleCoroutineScope
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABRouter
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFlowHelperInterface
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivity
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.transformWhile
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.CoroutineScope
 
 class OSIABWebViewRouterAdapter(
     private val context: Context,
-    private val lifecycleScope: LifecycleCoroutineScope,
+    private val lifecycleScope: CoroutineScope,
     private val options: OSIABWebViewOptions,
+    private val flowHelper: OSIABFlowHelperInterface,
     private val onBrowserPageLoaded: () -> Unit,
     private val onBrowserFinished: () -> Unit
 ) : OSIABRouter<Boolean> {
@@ -42,24 +41,12 @@ class OSIABWebViewRouterAdapter(
             completionHandler(true)
 
             // Collect the browser events
-            lifecycleScope.launch {
-                OSIABEvents.browserEvents.asSharedFlow().transformWhile {
-                    emit(it)
-                    it != OSIABEvents.BrowserFinished
-                }.collect { event ->
-                    when (event) {
-                        is OSIABEvents.BrowserPageLoaded -> {
-                            // Handle page finished event
-                            onBrowserPageLoaded()
-                        }
-                        is OSIABEvents.BrowserFinished -> {
-                            // Handle WebView closed event
-                            onBrowserFinished()
-                        }
-                    }
+            flowHelper.listenToEvents(lifecycleScope) { event ->
+                when (event) {
+                    is OSIABEvents.BrowserPageLoaded -> { onBrowserPageLoaded() }
+                    is OSIABEvents.BrowserFinished -> { onBrowserFinished() }
                 }
             }
-
 
         } catch (e: Exception) {
             completionHandler(false)
