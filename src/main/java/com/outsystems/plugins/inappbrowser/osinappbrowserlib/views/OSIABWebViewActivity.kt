@@ -1,11 +1,11 @@
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.views
 
-
 import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.webkit.CookieManager
+import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -14,24 +14,24 @@ import android.webkit.WebViewClient
 import android.widget.ImageButton
 import android.widget.RelativeLayout
 import android.widget.TextView
-import androidx.annotation.StyleRes
-import androidx.appcompat.widget.Toolbar
 import androidx.appcompat.app.AppCompatActivity
-import androidx.appcompat.view.ContextThemeWrapper
+import androidx.appcompat.widget.Toolbar
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABUIHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 import kotlinx.coroutines.launch
+
 
 class OSIABWebViewActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var closeButton: TextView
-    private lateinit var backButton: ImageButton
-    private lateinit var forwardButton: ImageButton
+    private lateinit var backNavigationButton: ImageButton
+    private lateinit var forwardNavigationButton: ImageButton
     private lateinit var urlText: TextView
     private lateinit var toolbar: Toolbar
     private lateinit var bottomToolbar: Toolbar
@@ -68,7 +68,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         //get elements in screen
         webView = findViewById(R.id.webview)
-
 
         toolbar = findViewById(R.id.toolbar)
         bottomToolbar = findViewById(R.id.bottom_toolbar)
@@ -117,8 +116,8 @@ class OSIABWebViewActivity : AppCompatActivity() {
      * Helper function to update navigation button states
      */
     private fun updateNavigationButtons() {
-        updateNavigationButton(backButton, webView.canGoBack())
-        updateNavigationButton(forwardButton, webView.canGoForward())
+        updateNavigationButton(backNavigationButton, webView.canGoBack())
+        updateNavigationButton(forwardNavigationButton, webView.canGoForward())
     }
 
     /**
@@ -137,14 +136,14 @@ class OSIABWebViewActivity : AppCompatActivity() {
         webView.settings.mediaPlaybackRequiresUserGesture = options.mediaPlaybackRequiresUserAction
 
         // setup WebViewClient and WebChromeClient
-        webView.webViewClient = customWebViewClient()
+        webView.webViewClient = customWebViewClient(options.showNavigationButtons)
         webView.webChromeClient = customWebChromeClient()
     }
 
     /**
      * Use WebViewClient to handle events on the WebView
      */
-    private fun customWebViewClient(): WebViewClient {
+    private fun customWebViewClient(hasNavigationButtons: Boolean): WebViewClient {
 
         val webViewClient = object : WebViewClient() {
 
@@ -155,7 +154,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
                 }
                 // store cookies after page finishes loading
                 storeCookies()
-                updateNavigationButtons()
+                if (hasNavigationButtons) updateNavigationButtons()
                 super.onPageFinished(view, url)
             }
 
@@ -232,8 +231,15 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         val webChromeClient = object : WebChromeClient() {
 
-            // override any methods necessary
+            override fun onShowFileChooser(
+                webView: WebView?,
+                filePathCallback: ValueCallback<Array<Uri>>?,
+                fileChooserParams: FileChooserParams?
+            ): Boolean {
+                return super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
+            }
 
+            // override any methods necessary
         }
         return webChromeClient
     }
@@ -247,9 +253,10 @@ class OSIABWebViewActivity : AppCompatActivity() {
         } else {
             sendWebViewEvent(OSIABEvents.BrowserFinished)
             webView.destroy()
-            super.onBackPressedDispatcher.onBackPressed()
+            onBackPressedDispatcher.onBackPressed()
         }
     }
+
 
     /**
      * Clears the WebView cache and removes all cookies if 'clearCache' parameter is 'true'.
@@ -312,23 +319,9 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         // if url text is visible
         if (showURL) {
-            urlText = createUrlText(urlToOpen.orEmpty(), isLeftRight)
+            urlText = createUrlText(urlToOpen.orEmpty(), isLeftRight, showNavigationButtons)
             content.addView(urlText)
         }
-    }
-
-    /**
-     * Creates a RelativeLayout.LayoutParams instance with the common settings (height, width and
-     * alignment)
-     * @return new instance of RelativeLayout.LayoutParams
-     */
-    private fun createCommonLayout(): RelativeLayout.LayoutParams {
-        val custom = RelativeLayout.LayoutParams(
-            RelativeLayout.LayoutParams.WRAP_CONTENT,
-            RelativeLayout.LayoutParams.WRAP_CONTENT
-        )
-        custom.addRule(RelativeLayout.CENTER_VERTICAL)
-        return custom
     }
 
     /**
@@ -340,7 +333,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
     private fun createNavigationButtons(isLeftRight: Boolean): RelativeLayout {
         //we wrap the navigation buttons in a relative layout, so they're easier to manipulate
         val nav: RelativeLayout = RelativeLayout(this).apply {
-            layoutParams = createCommonLayout().apply {
+            layoutParams = OSIABUIHelper.createCommonLayout().apply {
                 if (isLeftRight) addRule(RelativeLayout.ALIGN_PARENT_START)
                 else addRule(RelativeLayout.ALIGN_PARENT_END)
 
@@ -349,26 +342,32 @@ class OSIABWebViewActivity : AppCompatActivity() {
             setPaddingRelative(0, 0, 0, 0)
         }
 
-        backButton = createImageButton(R.style.NavigationButton_Back, createCommonLayout())
-        backButton.setOnClickListener {
+        backNavigationButton =
+            OSIABUIHelper.createImageButton(
+                this,
+                R.style.NavigationButton_Back,
+                OSIABUIHelper.createCommonLayout()
+            )
+        backNavigationButton.setOnClickListener {
             if (webView.canGoBack()) {
                 webView.goBack()
 
             }
         }
 
-        nav.addView(backButton)
-        forwardButton =
-            createImageButton(R.style.NavigationButton_Forward, createCommonLayout().apply {
-                addRule(RelativeLayout.END_OF, R.id.back_button)
-            })
-        forwardButton.setOnClickListener {
+        nav.addView(backNavigationButton)
+        forwardNavigationButton =
+            OSIABUIHelper.createImageButton(this, R.style.NavigationButton_Forward,
+                OSIABUIHelper.createCommonLayout().apply {
+                    addRule(RelativeLayout.END_OF, R.id.back_button)
+                })
+        forwardNavigationButton.setOnClickListener {
             if (webView.canGoForward()) {
                 webView.goForward()
 
             }
         }
-        nav.addView(forwardButton)
+        nav.addView(forwardNavigationButton)
         return nav
     }
 
@@ -379,11 +378,11 @@ class OSIABWebViewActivity : AppCompatActivity() {
      * @return a new TextView button
      */
     private fun createCloseButton(withText: String, isLeftRight: Boolean): TextView {
-        val params = createCommonLayout().apply {
+        val params = OSIABUIHelper.createCommonLayout().apply {
             if (isLeftRight) addRule(RelativeLayout.ALIGN_PARENT_END)
             else addRule(RelativeLayout.ALIGN_PARENT_START)
         }
-        val textView = createTextView(withText, R.style.CloseButton, params)
+        val textView = OSIABUIHelper.createTextView(this, withText, R.style.CloseButton, params)
         textView.setOnClickListener {
             webView.destroy()
             finish()
@@ -397,52 +396,21 @@ class OSIABWebViewActivity : AppCompatActivity() {
      * @param isLeftRight dictates the placement of the url
      * @return the URL TextView
      */
-    private fun createUrlText(url: String, isLeftRight: Boolean): TextView {
-        val params = createCommonLayout().apply {
+    private fun createUrlText(
+        url: String,
+        isLeftRight: Boolean,
+        hasNavigationButtons: Boolean
+    ): TextView {
+        val params = OSIABUIHelper.createCommonLayout().apply {
             if (isLeftRight) {
-                addRule(RelativeLayout.END_OF, R.id.navigation_buttons)
+                if (hasNavigationButtons) addRule(RelativeLayout.END_OF, R.id.navigation_buttons)
                 addRule(RelativeLayout.START_OF, R.id.close_button)
             } else {
                 addRule(RelativeLayout.END_OF, R.id.close_button)
-                addRule(RelativeLayout.START_OF, R.id.navigation_buttons)
+                if (hasNavigationButtons) addRule(RelativeLayout.START_OF, R.id.navigation_buttons)
             }
         }
-        return createTextView(url, R.style.URLBar, params)
-    }
-
-    /**
-     * Creates a TextView, with the given text, style and layout params
-     * @param withText the display text
-     * @param style the view's style id
-     * @param params relative layout params
-     * @return a new Text View
-     */
-    private fun createTextView(
-        withText: String,
-        @StyleRes style: Int,
-        params: RelativeLayout.LayoutParams
-    ): TextView {
-        return TextView(ContextThemeWrapper(this, style)).apply {
-            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
-            text = withText
-            layoutParams = params
-        }
-    }
-
-    /**
-     * Creates a TextView, with the given style and layout params
-     * @param style the view's style id
-     * @param params relative layout params
-     * @return a new Image Button
-     */
-    private fun createImageButton(
-        @StyleRes style: Int,
-        params: RelativeLayout.LayoutParams
-    ): ImageButton {
-        return ImageButton(ContextThemeWrapper(this, style)).apply {
-            layoutParams = params
-            isEnabled = false
-        }
+        return OSIABUIHelper.createTextView(this, url, R.style.URLBar, params)
     }
 
     /**
