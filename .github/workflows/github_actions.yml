@@ -1,14 +1,14 @@
 name: GitHub Actions
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main, development ]
+    branches:
+      - main
   pull_request:
-    branches: [ main, development ]
+    types: [opened, synchronize, reopened]
 
-jobs:    
-  test:
+jobs:
+  sonarcloud:
     name: Unit-Tests
     runs-on: macos-latest
 

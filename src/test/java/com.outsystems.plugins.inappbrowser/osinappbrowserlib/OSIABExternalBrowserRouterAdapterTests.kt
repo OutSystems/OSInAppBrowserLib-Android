@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
 import android.content.pm.ResolveInfo
+import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters.OSIABExternalBrowserRouterAdapter
 import org.junit.Assert.*
 import org.junit.Test
@@ -14,9 +15,8 @@ import org.mockito.ArgumentMatchers.anyInt
 import org.mockito.Mockito.doThrow
 import org.mockito.Mockito.mock
 import org.mockito.Mockito.`when`
-import org.robolectric.RobolectricTestRunner
 
-@RunWith(RobolectricTestRunner::class)
+@RunWith(AndroidJUnit4::class)
 class OSIABExternalBrowserRouterAdapterTests {
     private val activityName = "TestActivity"
     private val packageName = "com.outsystems.plugins.inappbrowser.osinappbrowserlib"

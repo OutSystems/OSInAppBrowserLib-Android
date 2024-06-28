@@ -27,7 +27,7 @@ platform :android do
   end
 
   lane :sonarqube do  
-    sonar
+    sonarqube
   end
 
 end
