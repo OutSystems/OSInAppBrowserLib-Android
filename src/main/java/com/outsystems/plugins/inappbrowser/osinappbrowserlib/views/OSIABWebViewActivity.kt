@@ -378,6 +378,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
         }
         val textView = OSIABUIHelper.createTextView(this, withText, R.style.CloseButton, params)
         textView.setOnClickListener {
+            sendWebViewEvent(OSIABEvents.BrowserFinished)
             webView.destroy()
             finish()
         }
