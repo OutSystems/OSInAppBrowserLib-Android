@@ -5,7 +5,6 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.webkit.CookieManager
-import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
@@ -131,6 +130,9 @@ class OSIABWebViewActivity : AppCompatActivity() {
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
 
+        if (!options.customUserAgent.isNullOrEmpty())
+            webView.settings.userAgentString = options.customUserAgent
+
         // get webView settings that come from options
         webView.settings.builtInZoomControls = options.allowZoom
         webView.settings.mediaPlaybackRequiresUserGesture = options.mediaPlaybackRequiresUserAction
@@ -230,15 +232,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
     private fun customWebChromeClient(): WebChromeClient {
 
         val webChromeClient = object : WebChromeClient() {
-
-            override fun onShowFileChooser(
-                webView: WebView?,
-                filePathCallback: ValueCallback<Array<Uri>>?,
-                fileChooserParams: FileChooserParams?
-            ): Boolean {
-                return super.onShowFileChooser(webView, filePathCallback, fileChooserParams)
-            }
-
             // override any methods necessary
         }
         return webChromeClient
@@ -334,9 +327,10 @@ class OSIABWebViewActivity : AppCompatActivity() {
         //we wrap the navigation buttons in a relative layout, so they're easier to manipulate
         val nav: RelativeLayout = RelativeLayout(this).apply {
             layoutParams = OSIABUIHelper.createCommonLayout().apply {
-                if (isLeftRight) addRule(RelativeLayout.ALIGN_PARENT_START)
-                else addRule(RelativeLayout.ALIGN_PARENT_END)
-
+                addRule(
+                    if (isLeftRight) RelativeLayout.ALIGN_PARENT_START
+                    else RelativeLayout.ALIGN_PARENT_END
+                )
             }
             id = R.id.navigation_buttons
             setPaddingRelative(0, 0, 0, 0)
@@ -351,7 +345,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
         backNavigationButton.setOnClickListener {
             if (webView.canGoBack()) {
                 webView.goBack()
-
             }
         }
 
@@ -364,7 +357,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
         forwardNavigationButton.setOnClickListener {
             if (webView.canGoForward()) {
                 webView.goForward()
-
             }
         }
         nav.addView(forwardNavigationButton)
@@ -379,8 +371,10 @@ class OSIABWebViewActivity : AppCompatActivity() {
      */
     private fun createCloseButton(withText: String, isLeftRight: Boolean): TextView {
         val params = OSIABUIHelper.createCommonLayout().apply {
-            if (isLeftRight) addRule(RelativeLayout.ALIGN_PARENT_END)
-            else addRule(RelativeLayout.ALIGN_PARENT_START)
+            addRule(
+                if (isLeftRight) RelativeLayout.ALIGN_PARENT_END
+                else RelativeLayout.ALIGN_PARENT_START
+            )
         }
         val textView = OSIABUIHelper.createTextView(this, withText, R.style.CloseButton, params)
         textView.setOnClickListener {
