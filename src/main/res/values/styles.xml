@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- InAppBrowser Toolbar Style -->
-    <style name="InAppToolBar" parent="AppTheme.NoActionBar">
+    <style name="InAppToolBar" parent="Widget.AppCompat.Toolbar">
         <item name="android:background">?attr/toolbarColor</item>
         <item name="android:elevation">4dp</item>
         <item name="android:paddingHorizontal">16dp</item>

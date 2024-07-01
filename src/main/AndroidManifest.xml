@@ -29,7 +29,7 @@
             android:exported="false"
             android:configChanges="orientation|screenSize|uiMode"
             android:label="OSIABWebViewActivity"
-            android:theme="@style/AppTheme.NoActionBar" />
+            android:theme="@style/AppTheme.WebView" />
     </application>
 
     <queries>
