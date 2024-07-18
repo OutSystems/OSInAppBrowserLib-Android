@@ -12,6 +12,7 @@ class OSIABCustomTabsSessionHelperMock: OSIABCustomTabsSessionHelperInterface {
         browserId: String,
         context: Context,
         lifecycleScope: CoroutineScope,
+        flowHelper: OSIABFlowHelperInterface,
         customTabsSessionCallback: (CustomTabsSession?) -> Unit
     ) {
         customTabsSessionCallback(CustomTabsSession.createMockSessionForTesting(ComponentName(context, componentName)))
