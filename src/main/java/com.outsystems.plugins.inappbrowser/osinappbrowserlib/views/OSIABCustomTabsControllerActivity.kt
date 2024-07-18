@@ -19,6 +19,8 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
     companion object {
         const val ACTION_CUSTOM_TABS_DESTROYED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_DESTROYED"
         const val ACTION_CUSTOM_TABS_READY = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_READY"
+        const val ACTION_CUSTOM_TABS_PAUSED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_PAUSED"
+        const val ACTION_CUSTOM_TABS_RESUMED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_RESUMED"
         const val ACTION_CLOSE_CUSTOM_TABS = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CLOSE_CUSTOM_TABS"
     }
 
@@ -54,6 +56,36 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setup(intent)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
+            lifecycleScope.launch {
+                OSIABEvents.postEvent(
+                    OSIABCustomTabsEvent(
+                        browserId = browserId,
+                        action = ACTION_CUSTOM_TABS_PAUSED,
+                        context = this@OSIABCustomTabsControllerActivity
+                    )
+                )
+            }
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
+            lifecycleScope.launch {
+                OSIABEvents.postEvent(
+                    OSIABCustomTabsEvent(
+                        browserId = browserId,
+                        action = ACTION_CUSTOM_TABS_RESUMED,
+                        context = this@OSIABCustomTabsControllerActivity
+                    )
+                )
+            }
+        }
     }
 
     override fun onDestroy() {

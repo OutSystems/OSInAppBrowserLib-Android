@@ -56,7 +56,6 @@ class OSIABWebViewRouterAdapter(
             else {
                 activity.finish()
                 setWebViewActivity(null)
-                onBrowserFinished()
                 completionHandler(true)
             }
         }
@@ -82,6 +81,7 @@ class OSIABWebViewRouterAdapter(
                             onBrowserPageLoaded()
                         }
                         is OSIABEvents.BrowserFinished -> {
+                            setWebViewActivity(null)
                             onBrowserFinished()
                             eventsJob?.cancel()
                         }

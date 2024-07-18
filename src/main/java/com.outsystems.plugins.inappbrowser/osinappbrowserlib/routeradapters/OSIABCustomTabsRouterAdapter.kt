@@ -46,7 +46,17 @@ class OSIABCustomTabsRouterAdapter(
 
         closeEventJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
             if(event is OSIABEvents.OSIABCustomTabsEvent) {
-                completionHandler(event.action == OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED)
+                when(event.action) {
+                    OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_READY -> {
+                        completionHandler(false)
+                    }
+                    OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED -> {
+                        completionHandler(true)
+                    }
+                    else -> {
+                        return@listenToEvents
+                    }
+                }
                 closeEventJob?.cancel()
             }
         }
@@ -144,6 +154,7 @@ class OSIABCustomTabsRouterAdapter(
                     browserId,
                     context,
                     lifecycleScope,
+                    flowHelper,
                     customTabsSessionCallback = {
                         if(it == null) {
                             completionHandler(false)
@@ -176,7 +187,6 @@ class OSIABCustomTabsRouterAdapter(
                         }
                     }
                     else if(event.action == OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED) {
-                        onBrowserFinished()
                         eventsJob?.cancel()
                     }
                 }

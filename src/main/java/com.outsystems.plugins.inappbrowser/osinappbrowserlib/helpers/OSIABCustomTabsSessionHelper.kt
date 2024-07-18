@@ -11,7 +11,9 @@ import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsServiceConnection
 import androidx.browser.customtabs.CustomTabsSession
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABCustomTabsControllerActivity
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
 class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
@@ -30,6 +32,7 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
         context: Context,
         packageName: String,
         lifecycleScope: CoroutineScope,
+        flowHelper: OSIABFlowHelperInterface,
         customTabsSessionCallback: (CustomTabsSession?) -> Unit
     ) {
         CustomTabsClient.bindCustomTabsService(
@@ -39,7 +42,7 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
                 override fun onCustomTabsServiceConnected(name: ComponentName, client: CustomTabsClient) {
                     client.warmup(0L)
                     customTabsSessionCallback(
-                        client.newSession(CustomTabsCallbackImpl(browserId, lifecycleScope))
+                        client.newSession(CustomTabsCallbackImpl(browserId, lifecycleScope, flowHelper))
                     )
                 }
 
@@ -52,13 +55,43 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
 
     private inner class CustomTabsCallbackImpl(
         private val browserId: String,
-        private val lifecycleScope: CoroutineScope
+        private val lifecycleScope: CoroutineScope,
+        flowHelper: OSIABFlowHelperInterface,
     ) : CustomTabsCallback() {
+
+        private var isCustomTabsActivityOnTop = false
+        init {
+            var browserEventsJob: Job? = null
+
+            browserEventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
+                if(event is OSIABEvents.OSIABCustomTabsEvent) {
+                    when (event.action) {
+                        OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_RESUMED -> {
+                            isCustomTabsActivityOnTop = true
+                        }
+                        OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_PAUSED -> {
+                            isCustomTabsActivityOnTop = false
+                        }
+                        OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED -> {
+                            browserEventsJob?.cancel()
+                        }
+                    }
+                }
+            }
+        }
         override fun onNavigationEvent(navigationEvent: Int, extras: Bundle?) {
             super.onNavigationEvent(navigationEvent, extras)
             val browserEvent = when (navigationEvent) {
                 NAVIGATION_FINISHED -> OSIABEvents.BrowserPageLoaded(browserId)
-                TAB_HIDDEN -> OSIABEvents.BrowserFinished(browserId)
+                TAB_HIDDEN -> {
+                    if(isCustomTabsActivityOnTop) {
+                        OSIABEvents.BrowserFinished(browserId)
+                    }
+                    else {
+                        // App not open but custom tabs is hidden (home button, recent apps, etc.)
+                        return
+                    }
+                }
                 else -> return
             }
             lifecycleScope.launch {
@@ -71,6 +104,7 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
         browserId: String,
         context: Context,
         lifecycleScope: CoroutineScope,
+        flowHelper: OSIABFlowHelperInterface,
         customTabsSessionCallback: (CustomTabsSession?) -> Unit
     ) {
         val packageName = getDefaultCustomTabsPackageName(context)
@@ -80,6 +114,7 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
                 context,
                 it,
                 lifecycleScope,
+                flowHelper,
                 customTabsSessionCallback
             )
         } ?: customTabsSessionCallback(null)
