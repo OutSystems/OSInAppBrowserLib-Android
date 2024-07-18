@@ -56,6 +56,7 @@ class OSIABWebViewRouterAdapter(
             else {
                 activity.finish()
                 setWebViewActivity(null)
+                onBrowserFinished()
                 completionHandler(true)
             }
         }

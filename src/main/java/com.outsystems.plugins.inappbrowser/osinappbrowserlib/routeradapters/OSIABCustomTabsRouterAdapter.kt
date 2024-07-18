@@ -187,6 +187,7 @@ class OSIABCustomTabsRouterAdapter(
                         }
                     }
                     else if(event.action == OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED) {
+                        onBrowserFinished()
                         eventsJob?.cancel()
                     }
                 }
