@@ -47,10 +47,10 @@ class OSIABCustomTabsRouterAdapter(
         closeEventJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
             if(event is OSIABEvents.OSIABCustomTabsEvent) {
                 when(event.action) {
-                    OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_READY -> {
+                    OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY -> {
                         completionHandler(false)
                     }
-                    OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED -> {
+                    OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED -> {
                         completionHandler(true)
                     }
                     else -> {
@@ -178,7 +178,7 @@ class OSIABCustomTabsRouterAdapter(
         eventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
             when (event) {
                 is OSIABEvents.OSIABCustomTabsEvent -> {
-                    if(isFirstLoad && event.action == OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_READY) {
+                    if(isFirstLoad && event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY) {
                         try {
                             customTabsIntent.launchUrl(event.context, uri)
                             completionHandler(true)
@@ -186,7 +186,7 @@ class OSIABCustomTabsRouterAdapter(
                             completionHandler(false)
                         }
                     }
-                    else if(event.action == OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED) {
+                    else if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
                         onBrowserFinished()
                         eventsJob?.cancel()
                     }
@@ -198,6 +198,8 @@ class OSIABCustomTabsRouterAdapter(
                     }
                 }
                 is OSIABEvents.BrowserFinished -> {
+                    // Ensure that custom tabs controller activity is fully destroyed
+                    startCustomTabsControllerActivity(true)
                     onBrowserFinished()
                     eventsJob?.cancel()
                 }

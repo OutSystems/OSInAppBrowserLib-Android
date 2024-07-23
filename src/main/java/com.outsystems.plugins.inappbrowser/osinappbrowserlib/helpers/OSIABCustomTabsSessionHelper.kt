@@ -66,13 +66,13 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
             browserEventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
                 if(event is OSIABEvents.OSIABCustomTabsEvent) {
                     when (event.action) {
-                        OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_RESUMED -> {
+                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_RESUMED -> {
                             isCustomTabsActivityOnTop = true
                         }
-                        OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_PAUSED -> {
+                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_PAUSED -> {
                             isCustomTabsActivityOnTop = false
                         }
-                        OSIABCustomTabsControllerActivity.ACTION_CUSTOM_TABS_DESTROYED -> {
+                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED -> {
                             browserEventsJob?.cancel()
                         }
                     }

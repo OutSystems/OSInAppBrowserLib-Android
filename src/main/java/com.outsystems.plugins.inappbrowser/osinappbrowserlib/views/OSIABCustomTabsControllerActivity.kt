@@ -17,10 +17,10 @@ import kotlinx.coroutines.launch
 
 class OSIABCustomTabsControllerActivity: AppCompatActivity() {
     companion object {
-        const val ACTION_CUSTOM_TABS_DESTROYED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_DESTROYED"
-        const val ACTION_CUSTOM_TABS_READY = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_READY"
-        const val ACTION_CUSTOM_TABS_PAUSED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_PAUSED"
-        const val ACTION_CUSTOM_TABS_RESUMED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CUSTOM_TABS_RESUMED"
+        const val EVENT_CUSTOM_TABS_DESTROYED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.EVENT_CUSTOM_TABS_DESTROYED"
+        const val EVENT_CUSTOM_TABS_READY = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.EVENT_CUSTOM_TABS_READY"
+        const val EVENT_CUSTOM_TABS_PAUSED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.EVENT_CUSTOM_TABS_PAUSED"
+        const val EVENT_CUSTOM_TABS_RESUMED = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.EVENT_CUSTOM_TABS_RESUMED"
         const val ACTION_CLOSE_CUSTOM_TABS = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CLOSE_CUSTOM_TABS"
     }
 
@@ -35,15 +35,7 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
         }
         else {
             intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
-                lifecycleScope.launch {
-                    OSIABEvents.postEvent(
-                        OSIABCustomTabsEvent(
-                            browserId = browserId,
-                            action = ACTION_CUSTOM_TABS_READY,
-                            context = this@OSIABCustomTabsControllerActivity
-                        )
-                    )
-                }
+                sendCustomTabsEvent(browserId, EVENT_CUSTOM_TABS_READY)
             }
         }
     }
@@ -61,30 +53,14 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
-            lifecycleScope.launch {
-                OSIABEvents.postEvent(
-                    OSIABCustomTabsEvent(
-                        browserId = browserId,
-                        action = ACTION_CUSTOM_TABS_PAUSED,
-                        context = this@OSIABCustomTabsControllerActivity
-                    )
-                )
-            }
+            sendCustomTabsEvent(browserId, EVENT_CUSTOM_TABS_PAUSED)
         }
     }
 
     override fun onResume() {
         super.onResume()
         intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
-            lifecycleScope.launch {
-                OSIABEvents.postEvent(
-                    OSIABCustomTabsEvent(
-                        browserId = browserId,
-                        action = ACTION_CUSTOM_TABS_RESUMED,
-                        context = this@OSIABCustomTabsControllerActivity
-                    )
-                )
-            }
+            sendCustomTabsEvent(browserId, EVENT_CUSTOM_TABS_RESUMED)
         }
     }
 
@@ -97,7 +73,7 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
                 OSIABEvents.postEvent(
                     OSIABCustomTabsEvent(
                         browserId = browserId,
-                        action = ACTION_CUSTOM_TABS_DESTROYED,
+                        action = EVENT_CUSTOM_TABS_DESTROYED,
                         context = this@OSIABCustomTabsControllerActivity
                     )
                 )
@@ -109,5 +85,17 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
             }
         }
         super.onDestroy()
+    }
+
+    private fun sendCustomTabsEvent(browserId: String, action: String) {
+        lifecycleScope.launch {
+            OSIABEvents.postEvent(
+                OSIABCustomTabsEvent(
+                    browserId = browserId,
+                    action = action,
+                    context = this@OSIABCustomTabsControllerActivity
+                )
+            )
+        }
     }
 }
