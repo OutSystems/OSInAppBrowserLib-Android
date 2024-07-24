@@ -35,7 +35,7 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
         }
         else {
             intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
-                sendCustomTabsEvent(browserId, EVENT_CUSTOM_TABS_READY)
+                sendCustomTabsEvent(lifecycleScope, browserId, EVENT_CUSTOM_TABS_READY)
             }
         }
     }
@@ -53,14 +53,14 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
     override fun onPause() {
         super.onPause()
         intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
-            sendCustomTabsEvent(browserId, EVENT_CUSTOM_TABS_PAUSED)
+            sendCustomTabsEvent(lifecycleScope, browserId, EVENT_CUSTOM_TABS_PAUSED)
         }
     }
 
     override fun onResume() {
         super.onResume()
         intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
-            sendCustomTabsEvent(browserId, EVENT_CUSTOM_TABS_RESUMED)
+            sendCustomTabsEvent(lifecycleScope, browserId, EVENT_CUSTOM_TABS_RESUMED)
         }
     }
 
@@ -68,27 +68,18 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
         intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
             val customScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
             val deferred = CompletableDeferred<Unit>()
-
-            customScope.launch {
-                OSIABEvents.postEvent(
-                    OSIABCustomTabsEvent(
-                        browserId = browserId,
-                        action = EVENT_CUSTOM_TABS_DESTROYED,
-                        context = this@OSIABCustomTabsControllerActivity
-                    )
-                )
-                deferred.complete(Unit)
-            }
-
-            deferred.invokeOnCompletion {
-                customScope.cancel()
-            }
+            sendCustomTabsEvent(customScope, browserId, EVENT_CUSTOM_TABS_DESTROYED, deferred)
         }
         super.onDestroy()
     }
 
-    private fun sendCustomTabsEvent(browserId: String, action: String) {
-        lifecycleScope.launch {
+    private fun sendCustomTabsEvent(
+        scope: CoroutineScope,
+        browserId: String,
+        action: String,
+        deferred: CompletableDeferred<Unit>? = null
+    ) {
+        scope.launch {
             OSIABEvents.postEvent(
                 OSIABCustomTabsEvent(
                     browserId = browserId,
@@ -96,6 +87,12 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
                     context = this@OSIABCustomTabsControllerActivity
                 )
             )
+
+            deferred?.complete(Unit)
+        }
+
+        deferred?.invokeOnCompletion {
+            scope.cancel()
         }
     }
 }

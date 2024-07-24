@@ -178,7 +178,7 @@ class OSIABCustomTabsRouterAdapter(
         eventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
             when (event) {
                 is OSIABEvents.OSIABCustomTabsEvent -> {
-                    if(isFirstLoad && event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY) {
+                    if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY) {
                         try {
                             customTabsIntent.launchUrl(event.context, uri)
                             completionHandler(true)
