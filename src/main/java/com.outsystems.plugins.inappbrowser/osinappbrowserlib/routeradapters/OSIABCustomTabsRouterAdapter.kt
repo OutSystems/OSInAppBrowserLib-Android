@@ -162,10 +162,9 @@ class OSIABCustomTabsRouterAdapter(
                         }
 
                         openCustomTabsIntent(it, uri, completionHandler)
+                        startCustomTabsControllerActivity()
                     }
                 )
-
-                startCustomTabsControllerActivity()
             } catch (e: Exception) {
                 completionHandler(false)
             }
