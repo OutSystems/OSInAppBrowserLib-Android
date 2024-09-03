@@ -86,3 +86,5 @@ lint/tmp/
 
 .DS_Store
 Gemfile.lock
+
+scripts/tmp

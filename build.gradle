@@ -4,8 +4,14 @@ buildscript {
     repositories {
         google()
         mavenCentral()
+        maven {
+            url = uri("https://plugins.gradle.org/m2/")
+        }
     }
     dependencies {
+        if (System.getenv("SHOULD_PUBLISH") == "true") {
+            classpath("io.github.gradle-nexus:publish-plugin:1.1.0")
+        }
         classpath 'com.android.tools.build:gradle:8.2.2'
         classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
         classpath "org.jacoco:org.jacoco.core:$jacocoVersion"
@@ -22,6 +28,11 @@ sonarqube {
         property "sonar.organization", "outsystemsrd"
         property "sonar.host.url", "https://sonarcloud.io"
     }
+}
+
+if (System.getenv("SHOULD_PUBLISH") == "true") {
+    apply plugin: "io.github.gradle-nexus.publish-plugin"
+    apply from: file("./scripts/publish-root.gradle")
 }
 
 apply plugin: "com.android.library"
@@ -42,6 +53,11 @@ android {
         vectorDrawables {
             useSupportLibrary true
         }
+    }
+
+    sourceSets {
+        getByName("main").java.srcDirs("src/main/java")
+        getByName("test").java.srcDirs("src/test/java")
     }
 
     buildTypes {
@@ -90,6 +106,10 @@ android {
     lintOptions {
         abortOnError false
     }
+
+    publishing {
+        singleVariant("release")
+    }
 }
 
 repositories {
@@ -118,3 +138,13 @@ dependencies {
     testImplementation 'androidx.test:core:1.6.1'
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
 }
+
+//task applyPubModule {
+//    doLast {
+if (System.getenv("SHOULD_PUBLISH") == "true") {
+    apply from: file("./scripts/publish-module.gradle")
+}
+//    }
+//}
+
+//build.finalizedBy(applyPubModule)

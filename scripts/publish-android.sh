@@ -17,7 +17,7 @@ else
 
     # Export ENV variable used by Gradle for Versioning
     export THE_VERSION
-    export PORTALS_PUBLISH=true
+    export SHOULD_PUBLISH=true
 
     printf %"s\n" "Attempting to build and publish version $THE_VERSION"
     # "$ANDROID_PATH"/gradlew clean build publishReleasePublicationToSonatypeRepository closeAndReleaseSonatypeStagingRepository --no-daemon --max-workers 1 -b "$ANDROID_PATH"/build.gradle -Pandroid.useAndroidX=true > $LOG_OUTPUT 2>&1

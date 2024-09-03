@@ -5,13 +5,13 @@ def LIB_VERSION = System.getenv('THE_VERSION')
 
 task androidSourcesJar(type: Jar) {
     archiveClassifier.set('sources')
-    if (project.plugins.findPlugin("com.android.library")) {
+    //if (project.plugins.findPlugin("com.android.library")) {
         from android.sourceSets.main.java.srcDirs
         from android.sourceSets.main.kotlin.srcDirs
-    } else {
-        from sourceSets.main.java.srcDirs
-        from sourceSets.main.kotlin.srcDirs
-    }
+    //} else {
+    //    from sourceSets.main.java.srcDirs
+    //    from sourceSets.main.kotlin.srcDirs
+    //}
 }
 
 artifacts {
@@ -46,7 +46,7 @@ afterEvaluate {
                     url = 'https://github.com/OutSystems/OSInAppBrowserLib-Android'
                     licenses {
                         license {
-                            name = 'Ionic Portals License'
+                            name = 'License'
                             url = 'https://github.com/OutSystems/OSInAppBrowserLib-Android/blob/main/LICENSE'
                         }
                     }
