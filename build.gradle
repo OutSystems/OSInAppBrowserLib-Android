@@ -57,7 +57,6 @@ android {
 
     sourceSets {
         getByName("main").java.srcDirs("src/main/java")
-        getByName("test").java.srcDirs("src/test/java")
     }
 
     buildTypes {
@@ -139,12 +138,6 @@ dependencies {
     testImplementation 'org.jetbrains.kotlinx:kotlinx-coroutines-test:1.7.3'
 }
 
-//task applyPubModule {
-//    doLast {
 if (System.getenv("SHOULD_PUBLISH") == "true") {
     apply from: file("./scripts/publish-module.gradle")
 }
-//    }
-//}
-
-//build.finalizedBy(applyPubModule)
