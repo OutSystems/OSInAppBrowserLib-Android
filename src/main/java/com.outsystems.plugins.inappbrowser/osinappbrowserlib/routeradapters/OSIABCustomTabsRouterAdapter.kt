@@ -37,26 +37,31 @@ class OSIABCustomTabsRouterAdapter(
 
     private val browserId = UUID.randomUUID().toString()
 
+    private var isCustomTabsOpen = false
+
     // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the CustomTabs instance
     private var isFirstLoad = true
 
     override fun close(completionHandler: (Boolean) -> Unit) {
+        if (!isCustomTabsOpen) {
+            completionHandler(true)
+            return
+        }
+
         var closeEventJob: Job? = null
 
         closeEventJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
             if(event is OSIABEvents.OSIABCustomTabsEvent) {
                 when(event.action) {
-                    OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY -> {
-                        completionHandler(false)
-                    }
                     OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED -> {
+                        isCustomTabsOpen = false
                         completionHandler(true)
+                        closeEventJob?.cancel()
                     }
                     else -> {
                         return@listenToEvents
                     }
                 }
-                closeEventJob?.cancel()
             }
         }
 
@@ -174,12 +179,14 @@ class OSIABCustomTabsRouterAdapter(
                     if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY) {
                         try {
                             customTabsIntent.launchUrl(event.context, uri)
+                            isCustomTabsOpen = true
                             completionHandler(true)
                         } catch (e: Exception) {
                             completionHandler(false)
                         }
                     }
                     else if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                        isCustomTabsOpen = false
                         onBrowserFinished()
                         eventsJob?.cancel()
                     }
