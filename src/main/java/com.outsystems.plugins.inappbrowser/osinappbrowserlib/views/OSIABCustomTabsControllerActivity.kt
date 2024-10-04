@@ -24,8 +24,6 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
         const val ACTION_CLOSE_CUSTOM_TABS = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CLOSE_CUSTOM_TABS"
     }
 
-    private var isClosing = false
-
     private fun setup(intent: Intent) {
         window.setFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
             WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE)
@@ -33,7 +31,6 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
             WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE)
 
         if (intent.getBooleanExtra(ACTION_CLOSE_CUSTOM_TABS, false)) {
-            isClosing = true
             finish()
         }
         else {
@@ -62,10 +59,6 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
-        if (isClosing) {
-            finish()
-            return
-        }
         intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)?.let { browserId ->
             sendCustomTabsEvent(lifecycleScope, browserId, EVENT_CUSTOM_TABS_RESUMED)
         }

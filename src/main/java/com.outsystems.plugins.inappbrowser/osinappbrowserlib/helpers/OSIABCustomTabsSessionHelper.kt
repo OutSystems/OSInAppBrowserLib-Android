@@ -47,6 +47,7 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
                 }
 
                 override fun onServiceDisconnected(name: ComponentName) {
+                    context.unbindService(this)
                     customTabsSessionCallback(null)
                 }
             }
