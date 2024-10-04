@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixes
 - Fix issue where the custom tabs browser wasn't being closed when navigating back to the app (https://outsystemsrd.atlassian.net/browse/RMET-3684)
+- Fix race condition that caused the `BrowserFinished` event to not be fired in some instances with the system browser.
 
 ## 1.0.1
 
