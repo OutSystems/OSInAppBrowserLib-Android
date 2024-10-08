@@ -6,5 +6,5 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.github.outsystems</groupId>
     <artifactId>osinappbrowser-android</artifactId>
-    <version>1.0.2-dev</version>
+    <version>1.0.2</version>
 </project>
