@@ -24,6 +24,7 @@ import android.widget.Button
 import android.widget.ImageButton
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -159,6 +160,8 @@ class OSIABWebViewActivity : AppCompatActivity() {
             webView.loadUrl(urlToOpen)
             showLoadingScreen()
         }
+
+        enableEdgeToEdge()
     }
 
     override fun onPause() {
@@ -440,7 +443,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
             this@OSIABWebViewActivity.filePathCallback = filePathCallback
             val intent = fileChooserParams?.createIntent()
             try {
-                fileChooserLauncher.launch(intent)
+                fileChooserLauncher.launch(intent!!)
             } catch (e: Exception) {
                 this@OSIABWebViewActivity.filePathCallback = null
                 Log.d(LOG_TAG, "Error launching file chooser. Exception: ${e.message}")
