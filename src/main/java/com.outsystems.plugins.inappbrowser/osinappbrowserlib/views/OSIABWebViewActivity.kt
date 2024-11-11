@@ -444,6 +444,14 @@ class OSIABWebViewActivity : AppCompatActivity() {
             val intent = fileChooserParams?.createIntent()
             try {
                 fileChooserLauncher.launch(intent!!)
+            } catch (npe: NullPointerException) {
+                this@OSIABWebViewActivity.filePathCallback = null
+                Log.e(
+                    LOG_TAG,
+                    "Attempted to launch but intent is null; fileChooserParams=$fileChooserParams",
+                    npe
+                )
+                return false
             } catch (e: Exception) {
                 this@OSIABWebViewActivity.filePathCallback = null
                 Log.d(LOG_TAG, "Error launching file chooser. Exception: ${e.message}")
