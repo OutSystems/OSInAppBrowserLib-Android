@@ -310,6 +310,8 @@ class OSIABWebViewActivity : AppCompatActivity() {
             if (isFirstLoad && !hasLoadError) {
                 sendWebViewEvent(OSIABEvents.BrowserPageLoaded(browserId))
                 isFirstLoad = false
+            } else if (!hasLoadError) {
+                sendWebViewEvent(OSIABEvents.BrowserPageNavigationCompleted(browserId, url))
             }
 
             // set back to false so that the next successful load

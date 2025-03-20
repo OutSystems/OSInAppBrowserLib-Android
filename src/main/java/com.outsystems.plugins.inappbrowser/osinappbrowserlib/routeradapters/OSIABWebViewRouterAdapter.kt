@@ -19,13 +19,15 @@ class OSIABWebViewRouterAdapter(
     flowHelper: OSIABFlowHelperInterface,
     onBrowserPageLoaded: () -> Unit,
     onBrowserFinished: () -> Unit,
+    onBrowserPageNavigationCompleted: (String?) -> Unit
 ) : OSIABBaseRouterAdapter<OSIABWebViewOptions, Boolean>(
     context = context,
     lifecycleScope = lifecycleScope,
     options = options,
     flowHelper = flowHelper,
     onBrowserPageLoaded = onBrowserPageLoaded,
-    onBrowserFinished = onBrowserFinished
+    onBrowserFinished = onBrowserFinished,
+    onBrowserPageNavigationCompleted = onBrowserPageNavigationCompleted
 ) {
     private val browserId = UUID.randomUUID().toString()
 
@@ -85,6 +87,9 @@ class OSIABWebViewRouterAdapter(
                             setWebViewActivity(null)
                             onBrowserFinished()
                             eventsJob?.cancel()
+                        }
+                        is OSIABEvents.BrowserPageNavigationCompleted -> {
+                            onBrowserPageNavigationCompleted(event.url)
                         }
                         else -> {}
                     }

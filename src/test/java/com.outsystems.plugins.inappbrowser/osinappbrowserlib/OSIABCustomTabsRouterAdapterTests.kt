@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ActivityInfo
 import android.content.pm.ApplicationInfo
+import android.content.pm.PackageManager
 import android.content.pm.ResolveInfo
 import android.net.Uri
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABCustomTabsSessionHelperMock
@@ -12,6 +13,7 @@ import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABCustomT
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters.OSIABCustomTabsRouterAdapter
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -43,7 +45,8 @@ class OSIABCustomTabsRouterAdapterTests {
                 options = options,
                 onBrowserPageLoaded = {},
                 onBrowserFinished = {},
-                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock()
+                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
+                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen(uri.toString()) { success ->
@@ -64,7 +67,8 @@ class OSIABCustomTabsRouterAdapterTests {
                 options = options,
                 onBrowserPageLoaded = {},
                 onBrowserFinished = {},
-                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock()
+                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
+                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen("invalid_url") { success ->
@@ -78,7 +82,7 @@ class OSIABCustomTabsRouterAdapterTests {
     fun test_handleOpen_withValidURLButException_returnsFalse() {
         runTest(StandardTestDispatcher()) {
             val context = mock(Context::class.java)
-            val packageManager = mock(android.content.pm.PackageManager::class.java)
+            val packageManager = mock(PackageManager::class.java)
 
             val sut = OSIABCustomTabsRouterAdapter(
                 context = context,
@@ -87,7 +91,8 @@ class OSIABCustomTabsRouterAdapterTests {
                 options = options,
                 onBrowserPageLoaded = {},
                 onBrowserFinished = {},
-                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock()
+                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
+                onBrowserPageNavigationCompleted = {}
             )
 
             `when`(packageManager.resolveActivity(any(Intent::class.java), anyInt())).thenReturn(
@@ -119,7 +124,8 @@ class OSIABCustomTabsRouterAdapterTests {
                 onBrowserFinished = {
                     fail()
                 },
-                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock()
+                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
+                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen(uri.toString()) { success ->
@@ -144,7 +150,8 @@ class OSIABCustomTabsRouterAdapterTests {
                 onBrowserFinished = {
                     assertTrue(true) // onBrowserFinished was called
                 },
-                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock()
+                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
+                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen(uri.toString()) { success ->
@@ -153,9 +160,42 @@ class OSIABCustomTabsRouterAdapterTests {
         }
     }
 
+    @Test
+    fun test_handleOpen_withValidURL_launchesCustomTab_when_browserPageNavigationCompleted_then_browserPageNavigationCompletedTriggered() {
+        runTest(StandardTestDispatcher()) {
+            var pageNavigationCalled = false
+            val context = mockContext(useValidURL = true, ableToOpenURL = true)
+            val flowHelperMock = OSIABFlowHelperMock().apply {
+                event = OSIABEvents.BrowserPageNavigationCompleted("", "https://test")
+            }
+            val sut = OSIABCustomTabsRouterAdapter(
+                context = context,
+                lifecycleScope = this,
+                flowHelper = flowHelperMock,
+                options = options,
+                onBrowserPageLoaded = {
+                    fail()
+                },
+                onBrowserFinished = {
+                    fail()
+                },
+                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
+                onBrowserPageNavigationCompleted = { url ->
+                    pageNavigationCalled = true
+                    assertEquals(url, "https://test")
+                }
+            )
+
+            sut.handleOpen(uri.toString()) { success ->
+                assertTrue(success)
+                assertTrue(pageNavigationCalled)
+            }
+        }
+    }
+
     private fun mockContext(useValidURL: Boolean, ableToOpenURL: Boolean = false): Context {
         val context = mock(Context::class.java)
-        val packageManager = mock(android.content.pm.PackageManager::class.java)
+        val packageManager = mock(PackageManager::class.java)
 
         val resolveInfo = if (useValidURL && ableToOpenURL) {
             val resolveInfo = ResolveInfo()

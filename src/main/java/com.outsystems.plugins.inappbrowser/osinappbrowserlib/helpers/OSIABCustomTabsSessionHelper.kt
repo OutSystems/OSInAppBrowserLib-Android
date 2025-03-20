@@ -89,6 +89,7 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
                 }
             }
         }
+
         override fun onNavigationEvent(navigationEvent: Int, extras: Bundle?) {
             super.onNavigationEvent(navigationEvent, extras)
             val browserEvent = when (navigationEvent) {
