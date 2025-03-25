@@ -13,7 +13,8 @@ abstract class OSIABBaseRouterAdapter<OptionsType : OSIABOptions, ReturnType>(
     protected val options: OptionsType,
     protected val flowHelper: OSIABFlowHelperInterface,
     protected val onBrowserPageLoaded: () -> Unit,
-    protected val onBrowserFinished: () -> Unit
+    protected val onBrowserFinished: () -> Unit,
+    protected val onBrowserPageNavigationCompleted: (String?) -> Unit
 ) : OSIABRouter<ReturnType>, OSIABClosable {
     abstract override fun close(completionHandler: (Boolean) -> Unit)
     abstract override fun handleOpen(url: String, completionHandler: (ReturnType) -> Unit)
