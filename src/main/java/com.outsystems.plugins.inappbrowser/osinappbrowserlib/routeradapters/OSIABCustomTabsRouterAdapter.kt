@@ -25,7 +25,6 @@ class OSIABCustomTabsRouterAdapter(
     flowHelper: OSIABFlowHelperInterface,
     onBrowserPageLoaded: () -> Unit,
     onBrowserFinished: () -> Unit,
-    onBrowserPageNavigationCompleted: (String?) -> Unit,
     private val customTabsSessionHelper: OSIABCustomTabsSessionHelperInterface = OSIABCustomTabsSessionHelper(),
 ) : OSIABBaseRouterAdapter<OSIABCustomTabsOptions, Boolean>(
     context = context,
@@ -33,8 +32,7 @@ class OSIABCustomTabsRouterAdapter(
     options = options,
     flowHelper = flowHelper,
     onBrowserPageLoaded = onBrowserPageLoaded,
-    onBrowserFinished = onBrowserFinished,
-    onBrowserPageNavigationCompleted = onBrowserPageNavigationCompleted
+    onBrowserFinished = onBrowserFinished
 ) {
 
     private val browserId = UUID.randomUUID().toString()
@@ -197,9 +195,6 @@ class OSIABCustomTabsRouterAdapter(
                     startCustomTabsControllerActivity(true)
                     onBrowserFinished()
                     eventsJob?.cancel()
-                }
-                is OSIABEvents.BrowserPageNavigationCompleted -> {
-                    onBrowserPageNavigationCompleted(event.url)
                 }
                 else -> {}
             }
