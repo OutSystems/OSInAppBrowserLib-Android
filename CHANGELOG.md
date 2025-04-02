@@ -6,6 +6,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## Unreleased
 
+### Features
+
+- Add `onBrowserPageNavigationCompleted` event callback to WebView (https://outsystemsrd.atlassian.net/browse/RMET-4121)
+
+### Chores
+
 - Update `publish-android` workflow to publish library under io.ionic.libs (https://outsystemsrd.atlassian.net/browse/RMET-3982)
 
 ## 1.2.1
