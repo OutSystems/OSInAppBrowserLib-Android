@@ -46,7 +46,6 @@ class OSIABCustomTabsRouterAdapterTests {
                 onBrowserPageLoaded = {},
                 onBrowserFinished = {},
                 customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
-                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen(uri.toString()) { success ->
@@ -68,7 +67,6 @@ class OSIABCustomTabsRouterAdapterTests {
                 onBrowserPageLoaded = {},
                 onBrowserFinished = {},
                 customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
-                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen("invalid_url") { success ->
@@ -92,7 +90,6 @@ class OSIABCustomTabsRouterAdapterTests {
                 onBrowserPageLoaded = {},
                 onBrowserFinished = {},
                 customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
-                onBrowserPageNavigationCompleted = {}
             )
 
             `when`(packageManager.resolveActivity(any(Intent::class.java), anyInt())).thenReturn(
@@ -125,7 +122,6 @@ class OSIABCustomTabsRouterAdapterTests {
                     fail()
                 },
                 customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
-                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen(uri.toString()) { success ->
@@ -151,44 +147,10 @@ class OSIABCustomTabsRouterAdapterTests {
                     assertTrue(true) // onBrowserFinished was called
                 },
                 customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
-                onBrowserPageNavigationCompleted = {}
             )
 
             sut.handleOpen(uri.toString()) { success ->
                 assertTrue(success)
-            }
-        }
-    }
-
-    @Test
-    fun test_handleOpen_withValidURL_launchesCustomTab_when_browserPageNavigationCompleted_then_browserPageNavigationCompletedTriggered() {
-        runTest(StandardTestDispatcher()) {
-            var pageNavigationCalled = false
-            val context = mockContext(useValidURL = true, ableToOpenURL = true)
-            val flowHelperMock = OSIABFlowHelperMock().apply {
-                event = OSIABEvents.BrowserPageNavigationCompleted("", "https://test")
-            }
-            val sut = OSIABCustomTabsRouterAdapter(
-                context = context,
-                lifecycleScope = this,
-                flowHelper = flowHelperMock,
-                options = options,
-                onBrowserPageLoaded = {
-                    fail()
-                },
-                onBrowserFinished = {
-                    fail()
-                },
-                customTabsSessionHelper = OSIABCustomTabsSessionHelperMock(),
-                onBrowserPageNavigationCompleted = { url ->
-                    pageNavigationCalled = true
-                    assertEquals(url, "https://test")
-                }
-            )
-
-            sut.handleOpen(uri.toString()) { success ->
-                assertTrue(success)
-                assertTrue(pageNavigationCalled)
             }
         }
     }
