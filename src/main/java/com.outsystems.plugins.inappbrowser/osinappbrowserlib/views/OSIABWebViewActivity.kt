@@ -358,6 +358,12 @@ class OSIABWebViewActivity : AppCompatActivity() {
                     if (showURL) urlText.text = urlString
                     true
                 }
+                !urlString.startsWith("http:") && !urlString.startsWith("https:") && urlString.matches( Regex("^[A-Za-z0-9+.-]*://.*?\$")) -> {
+                    if (urlString.startsWith(packageName, ignoreCase = true)) {
+                        sendWebViewEvent(OSIABEvents.BrowserPageNavigationCompleted(browserId, urlString))
+                    }
+                    true
+                }
                 else -> false
             }
         }
