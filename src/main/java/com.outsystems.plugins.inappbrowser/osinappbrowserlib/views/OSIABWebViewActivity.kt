@@ -358,7 +358,13 @@ class OSIABWebViewActivity : AppCompatActivity() {
                     if (showURL) urlText.text = urlString
                     true
                 }
-                else -> false
+                else -> {
+                    /**
+                     * Context: https://outsystemsrd.atlassian.net/browse/RMET-4258
+                     * Try to open the custom scheme URL via intent, and if it fails, tries to open in the WebView (current behaviour)
+                     */
+                    return launchIntent(urlString = urlString)
+                }
             }
         }
 
