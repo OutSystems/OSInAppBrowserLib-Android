@@ -87,6 +87,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
     companion object {
         const val WEB_VIEW_URL_EXTRA = "WEB_VIEW_URL_EXTRA"
         const val WEB_VIEW_OPTIONS_EXTRA = "WEB_VIEW_OPTIONS_EXTRA"
+        const val CUSTOM_HEADERS_EXTRA = "CUSTOM_HEADERS_EXTRA"
         const val DISABLED_ALPHA = 0.3f
         const val ENABLED_ALPHA = 1.0f
         const val REQUEST_STANDARD_PERMISSION = 622
@@ -103,21 +104,10 @@ class OSIABWebViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
-
-        sendWebViewEvent(OSIABWebViewEvent(browserId,this@OSIABWebViewActivity))
-
+        sendWebViewEvent(OSIABWebViewEvent(browserId, this@OSIABWebViewActivity))
         appName = applicationInfo.loadLabel(packageManager).toString()
 
-        // get parameters from intent extras
-        val urlToOpen = intent.extras?.getString(WEB_VIEW_URL_EXTRA)
-        options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.extras?.getSerializable(
-                WEB_VIEW_OPTIONS_EXTRA,
-                OSIABWebViewOptions::class.java
-            ) ?: OSIABWebViewOptions()
-        } else {
-            intent.extras?.getSerializable(WEB_VIEW_OPTIONS_EXTRA) as OSIABWebViewOptions
-        }
+        val (urlToOpen, customHeaders) = getParametersFromIntentExtras()
 
         setContentView(R.layout.activity_web_view)
 
@@ -157,11 +147,33 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         setupWebView()
         if (urlToOpen != null) {
-            webView.loadUrl(urlToOpen)
+            webView.loadUrl(urlToOpen, customHeaders ?: emptyMap())
             showLoadingScreen()
         }
 
         enableEdgeToEdge()
+    }
+
+    private fun getParametersFromIntentExtras(): Pair<String?, HashMap<String, String>?> {
+        val urlToOpen = intent.extras?.getString(WEB_VIEW_URL_EXTRA)
+        options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.extras?.getSerializable(
+                WEB_VIEW_OPTIONS_EXTRA,
+                OSIABWebViewOptions::class.java
+            ) ?: OSIABWebViewOptions()
+        } else {
+            intent.extras?.getSerializable(WEB_VIEW_OPTIONS_EXTRA) as OSIABWebViewOptions
+        }
+
+        @Suppress("UNCHECKED_CAST")
+        val customHeaders: HashMap<String, String>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.getSerializableExtra(CUSTOM_HEADERS_EXTRA, HashMap::class.java) as? HashMap<String, String>
+        } else {
+            @Suppress("DEPRECATION")
+            intent.getSerializableExtra(CUSTOM_HEADERS_EXTRA) as? HashMap<String, String>
+        }
+
+        return Pair(urlToOpen, customHeaders)
     }
 
     override fun onPause() {

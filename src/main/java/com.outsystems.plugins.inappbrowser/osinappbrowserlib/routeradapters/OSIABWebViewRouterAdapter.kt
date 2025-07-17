@@ -19,7 +19,8 @@ class OSIABWebViewRouterAdapter(
     flowHelper: OSIABFlowHelperInterface,
     onBrowserPageLoaded: () -> Unit,
     onBrowserFinished: () -> Unit,
-    private val onBrowserPageNavigationCompleted: (String?) -> Unit
+    private val onBrowserPageNavigationCompleted: (String?) -> Unit,
+    private val customHeaders: HashMap<String, String>? = null
 ) : OSIABBaseRouterAdapter<OSIABWebViewOptions, Boolean>(
     context = context,
     lifecycleScope = lifecycleScope,
@@ -33,6 +34,7 @@ class OSIABWebViewRouterAdapter(
     companion object {
         const val WEB_VIEW_URL_EXTRA = "WEB_VIEW_URL_EXTRA"
         const val WEB_VIEW_OPTIONS_EXTRA = "WEB_VIEW_OPTIONS_EXTRA"
+        const val CUSTOM_HEADERS_EXTRA = "CUSTOM_HEADERS_EXTRA"
     }
 
     private var webViewActivityRef: WeakReference<OSIABWebViewActivity>? = null
@@ -101,6 +103,7 @@ class OSIABWebViewRouterAdapter(
                         putExtra(OSIABEvents.EXTRA_BROWSER_ID, browserId)
                         putExtra(WEB_VIEW_URL_EXTRA, url)
                         putExtra(WEB_VIEW_OPTIONS_EXTRA, options)
+                        putExtra(CUSTOM_HEADERS_EXTRA, customHeaders)
                     }
                 )
 
