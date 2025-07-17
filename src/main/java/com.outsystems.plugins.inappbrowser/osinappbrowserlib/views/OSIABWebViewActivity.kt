@@ -104,10 +104,25 @@ class OSIABWebViewActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
+
         sendWebViewEvent(OSIABWebViewEvent(browserId, this@OSIABWebViewActivity))
+
         appName = applicationInfo.loadLabel(packageManager).toString()
 
-        val (urlToOpen, customHeaders) = getParametersFromIntentExtras()
+        // get parameters from intent extras
+        val urlToOpen = intent.extras?.getString(WEB_VIEW_URL_EXTRA)
+        options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            intent.extras?.getSerializable(
+                WEB_VIEW_OPTIONS_EXTRA,
+                OSIABWebViewOptions::class.java
+            ) ?: OSIABWebViewOptions()
+        } else {
+            intent.extras?.getSerializable(WEB_VIEW_OPTIONS_EXTRA) as OSIABWebViewOptions
+        }
+
+        val customHeaders: Map<String, String>? = intent.getBundleExtra(CUSTOM_HEADERS_EXTRA)?.let { bundle ->
+            bundle.keySet().associateWith { bundle.getString(it).orEmpty() }
+        }
 
         setContentView(R.layout.activity_web_view)
 
@@ -152,28 +167,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
         }
 
         enableEdgeToEdge()
-    }
-
-    private fun getParametersFromIntentExtras(): Pair<String?, HashMap<String, String>?> {
-        val urlToOpen = intent.extras?.getString(WEB_VIEW_URL_EXTRA)
-        options = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.extras?.getSerializable(
-                WEB_VIEW_OPTIONS_EXTRA,
-                OSIABWebViewOptions::class.java
-            ) ?: OSIABWebViewOptions()
-        } else {
-            intent.extras?.getSerializable(WEB_VIEW_OPTIONS_EXTRA) as OSIABWebViewOptions
-        }
-
-        @Suppress("UNCHECKED_CAST")
-        val customHeaders: HashMap<String, String>? = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            intent.getSerializableExtra(CUSTOM_HEADERS_EXTRA, HashMap::class.java) as? HashMap<String, String>
-        } else {
-            @Suppress("DEPRECATION")
-            intent.getSerializableExtra(CUSTOM_HEADERS_EXTRA) as? HashMap<String, String>
-        }
-
-        return Pair(urlToOpen, customHeaders)
     }
 
     override fun onPause() {
