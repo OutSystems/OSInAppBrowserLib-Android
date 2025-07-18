@@ -2,6 +2,7 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters
 
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFlowHelperInterface
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
@@ -19,7 +20,8 @@ class OSIABWebViewRouterAdapter(
     flowHelper: OSIABFlowHelperInterface,
     onBrowserPageLoaded: () -> Unit,
     onBrowserFinished: () -> Unit,
-    private val onBrowserPageNavigationCompleted: (String?) -> Unit
+    private val onBrowserPageNavigationCompleted: (String?) -> Unit,
+    private val customHeaders: Map<String, String>? = null
 ) : OSIABBaseRouterAdapter<OSIABWebViewOptions, Boolean>(
     context = context,
     lifecycleScope = lifecycleScope,
@@ -33,6 +35,7 @@ class OSIABWebViewRouterAdapter(
     companion object {
         const val WEB_VIEW_URL_EXTRA = "WEB_VIEW_URL_EXTRA"
         const val WEB_VIEW_OPTIONS_EXTRA = "WEB_VIEW_OPTIONS_EXTRA"
+        const val CUSTOM_HEADERS_EXTRA = "CUSTOM_HEADERS_EXTRA"
     }
 
     private var webViewActivityRef: WeakReference<OSIABWebViewActivity>? = null
@@ -101,6 +104,11 @@ class OSIABWebViewRouterAdapter(
                         putExtra(OSIABEvents.EXTRA_BROWSER_ID, browserId)
                         putExtra(WEB_VIEW_URL_EXTRA, url)
                         putExtra(WEB_VIEW_OPTIONS_EXTRA, options)
+                        putExtra(CUSTOM_HEADERS_EXTRA, Bundle().apply {
+                            customHeaders?.forEach { (key, value) ->
+                                putString(key, value)
+                            }
+                        })
                     }
                 )
 
