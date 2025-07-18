@@ -87,6 +87,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
     companion object {
         const val WEB_VIEW_URL_EXTRA = "WEB_VIEW_URL_EXTRA"
         const val WEB_VIEW_OPTIONS_EXTRA = "WEB_VIEW_OPTIONS_EXTRA"
+        const val CUSTOM_HEADERS_EXTRA = "CUSTOM_HEADERS_EXTRA"
         const val DISABLED_ALPHA = 0.3f
         const val ENABLED_ALPHA = 1.0f
         const val REQUEST_STANDARD_PERMISSION = 622
@@ -104,7 +105,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
 
-        sendWebViewEvent(OSIABWebViewEvent(browserId,this@OSIABWebViewActivity))
+        sendWebViewEvent(OSIABWebViewEvent(browserId, this@OSIABWebViewActivity))
 
         appName = applicationInfo.loadLabel(packageManager).toString()
 
@@ -117,6 +118,10 @@ class OSIABWebViewActivity : AppCompatActivity() {
             ) ?: OSIABWebViewOptions()
         } else {
             intent.extras?.getSerializable(WEB_VIEW_OPTIONS_EXTRA) as OSIABWebViewOptions
+        }
+
+        val customHeaders: Map<String, String>? = intent.getBundleExtra(CUSTOM_HEADERS_EXTRA)?.let { bundle ->
+            bundle.keySet().associateWith { bundle.getString(it).orEmpty() }
         }
 
         setContentView(R.layout.activity_web_view)
@@ -157,7 +162,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         setupWebView()
         if (urlToOpen != null) {
-            webView.loadUrl(urlToOpen)
+            webView.loadUrl(urlToOpen, customHeaders ?: emptyMap())
             showLoadingScreen()
         }
 
