@@ -38,13 +38,12 @@ import androidx.lifecycle.lifecycleScope
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents.OSIABWebViewEvent
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABPdfHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.net.HttpURLConnection
-import java.net.URL
 
 class OSIABWebViewActivity : AppCompatActivity() {
 
@@ -308,31 +307,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun openPdfViewer(url: String) {
-        val intent = Intent(this@OSIABWebViewActivity, OSIABPdfViewerActivity::class.java).apply {
-            putExtra("PDF_URL", url)
-            putExtra(OSIABPdfViewerActivity.WEB_VIEW_OPTIONS_EXTRA, options)
-        }
-        startActivity(intent)
-    }
-
-    private fun isContentTypeApplicationPdf(urlString: String): Boolean {
-        return try {
-            val url = URL(urlString)
-            (url.openConnection() as? HttpURLConnection)?.run {
-                instanceFollowRedirects = true
-                requestMethod = "HEAD"
-                connect()
-                val type = contentType
-                val disposition = getHeaderField("Content-Disposition")
-                type == "application/pdf" ||
-                        (type == null && disposition?.contains(".pdf", ignoreCase = true) == true)
-            } ?: false
-        } catch (_: Exception) {
-            false
-        }
-    }
-
     /*
      * Inner class with implementation for WebViewClient
      */
@@ -400,10 +374,10 @@ class OSIABWebViewActivity : AppCompatActivity() {
                     view?.loadUrl(urlString)
 
                     lifecycleScope.launch(Dispatchers.IO) {
-                        if (isContentTypeApplicationPdf(urlString)) {
+                        if (OSIABPdfHelper.isContentTypeApplicationPdf(urlString)) {
                             withContext(Dispatchers.Main) {
                                 view?.stopLoading()
-                                openPdfViewer(urlString)
+                                OSIABPdfHelper.openPdfViewer(this@OSIABWebViewActivity, urlString, options)
                             }
                         }
                     }

@@ -5,11 +5,14 @@ import android.content.Intent
 import android.os.Bundle
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFlowHelperInterface
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABPdfHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivity
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.lang.ref.WeakReference
 import java.util.UUID
 
@@ -54,15 +57,14 @@ class OSIABWebViewRouterAdapter(
 
     override fun close(completionHandler: (Boolean) -> Unit) {
         getWebViewActivity().let { activity ->
-            if(activity == null) {
+            if (activity == null) {
                 completionHandler(false)
+                return
             }
-            else {
-                activity.finish()
-                setWebViewActivity(null)
-                onBrowserFinished()
-                completionHandler(true)
-            }
+            activity.finish()
+            setWebViewActivity(null)
+            onBrowserFinished()
+            completionHandler(true)
         }
     }
 
@@ -73,6 +75,14 @@ class OSIABWebViewRouterAdapter(
      */
     override fun handleOpen(url: String, completionHandler: (Boolean) -> Unit) {
         lifecycleScope.launch {
+            val isPdf = withContext(Dispatchers.IO) {
+                OSIABPdfHelper.isContentTypeApplicationPdf(url)
+            }
+            if (isPdf) {
+                OSIABPdfHelper.openPdfViewer(context, url, options)
+                completionHandler(true)
+                return@launch
+            }
             try {
                 // Collect the browser events
                 var eventsJob: Job? = null
