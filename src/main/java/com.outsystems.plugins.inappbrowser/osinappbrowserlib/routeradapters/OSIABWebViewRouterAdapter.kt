@@ -75,14 +75,6 @@ class OSIABWebViewRouterAdapter(
      */
     override fun handleOpen(url: String, completionHandler: (Boolean) -> Unit) {
         lifecycleScope.launch {
-            val isPdf = withContext(Dispatchers.IO) {
-                OSIABPdfHelper.isContentTypeApplicationPdf(url)
-            }
-            if (isPdf) {
-                OSIABPdfHelper.openPdfViewer(context, url, options)
-                completionHandler(true)
-                return@launch
-            }
             try {
                 // Collect the browser events
                 var eventsJob: Job? = null

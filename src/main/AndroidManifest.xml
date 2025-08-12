@@ -28,14 +28,6 @@
             android:launchMode="singleTask"
             android:excludeFromRecents="true"
             android:windowSoftInputMode="stateAlwaysHidden|adjustPan" />
-        <activity
-            android:name=".views.OSIABPdfViewerActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|uiMode"
-            android:label="OSIABPdfViewerActivity"
-            android:theme="@style/AppTheme.WebView"
-            android:enableOnBackInvokedCallback="true"
-            tools:targetApi="33" />
     </application>
 
     <queries>

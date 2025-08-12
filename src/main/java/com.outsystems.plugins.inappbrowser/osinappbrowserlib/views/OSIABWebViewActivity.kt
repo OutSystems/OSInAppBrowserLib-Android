@@ -44,6 +44,8 @@ import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebView
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.net.URL
 
 class OSIABWebViewActivity : AppCompatActivity() {
 
@@ -176,7 +178,8 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         setupWebView()
         if (urlToOpen != null) {
-            webView.loadUrl(urlToOpen, customHeaders ?: emptyMap())
+//            webView.loadUrl(urlToOpen, customHeaders ?: emptyMap())
+            handleOpenUrl(urlToOpen, customHeaders)
             showLoadingScreen()
         }
 
@@ -208,6 +211,45 @@ class OSIABWebViewActivity : AppCompatActivity() {
             webView.onResume()
         }
     }
+
+    private fun handleOpenUrl(url: String, additionalHttpHeaders: Map<String, String>? = null) {
+        lifecycleScope.launch(Dispatchers.IO) {
+            val isPdf = OSIABPdfHelper.isContentTypeApplicationPdf(url)
+
+            if (isPdf) {
+                try {
+                    val pdfFile = File(
+                        this@OSIABWebViewActivity.cacheDir,
+                        "temp_${System.currentTimeMillis()}.pdf"
+                    )
+
+                    URL(url).openStream().use { input ->
+                        pdfFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+
+                    launch(Dispatchers.Main) {
+                        webView.stopLoading()
+
+                        val pdfJsUrl = "file:///android_asset/pdfjs/web/viewer.html?file=" +
+                                Uri.encode("file://${pdfFile.absolutePath}")
+
+                        webView.loadUrl(pdfJsUrl)
+                    }
+
+                    return@launch
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
+            launch(Dispatchers.Main) {
+                webView.loadUrl(url, additionalHttpHeaders ?: emptyMap())
+            }
+        }
+    }
+
 
     /**
      * Helper function to update navigation button states
@@ -241,6 +283,11 @@ class OSIABWebViewActivity : AppCompatActivity() {
         webView.settings.domStorageEnabled = true
         webView.settings.loadWithOverviewMode = true
         webView.settings.useWideViewPort = true
+
+        webView.settings.apply {
+            allowFileAccess = true
+            allowFileAccessFromFileURLs = true
+        }
 
         if (!options.customUserAgent.isNullOrEmpty())
             webView.settings.userAgentString = options.customUserAgent
@@ -371,18 +418,37 @@ class OSIABWebViewActivity : AppCompatActivity() {
                 }
                 // handle every http and https link by loading it in the WebView
                 urlString.startsWith("http:") || urlString.startsWith("https:") -> {
-                    view?.loadUrl(urlString)
-
-                    lifecycleScope.launch(Dispatchers.IO) {
-                        if (OSIABPdfHelper.isContentTypeApplicationPdf(urlString)) {
-                            withContext(Dispatchers.Main) {
-                                view?.stopLoading()
-                                OSIABPdfHelper.openPdfViewer(this@OSIABWebViewActivity, urlString, options)
-                            }
-                        }
-                    }
-
-                    if (showURL) urlText.text = urlString
+//                    view?.loadUrl(urlString)
+//
+//                    lifecycleScope.launch(Dispatchers.IO) {
+//                        if (OSIABPdfHelper.isContentTypeApplicationPdf(urlString)) {
+//                            try {
+//                                val pdfFile = File(
+//                                    this@OSIABWebViewActivity.cacheDir,
+//                                    "temp_${System.currentTimeMillis()}.pdf"
+//                                )
+//                                URL(urlString).openStream().use { input ->
+//                                    pdfFile.outputStream().use { output ->
+//                                        input.copyTo(output)
+//                                    }
+//                                }
+//
+//                                withContext(Dispatchers.Main) {
+//                                    view?.stopLoading()
+//
+//                                    val pdfJsUrl = "file:///android_asset/pdfjs/web/viewer.html?file=" +
+//                                            Uri.encode("file://${pdfFile.absolutePath}")
+//
+//                                    view?.loadUrl(pdfJsUrl)
+//                                }
+//                            } catch (e: Exception) {
+//                                e.printStackTrace()
+//                            }
+//                        }
+//                    }
+//
+//                    if (showURL) urlText.text = urlString
+                    handleOpenUrl(urlString)
                     true
                 }
                 else -> false
@@ -659,7 +725,8 @@ class OSIABWebViewActivity : AppCompatActivity() {
         return findViewById<Button?>(R.id.reload_button).apply {
             setOnClickListener {
                 currentUrl?.let {
-                    webView.loadUrl(it)
+//                    webView.loadUrl(it)
+                    handleOpenUrl(it)
                     showLoadingScreen()
                 }
             }
