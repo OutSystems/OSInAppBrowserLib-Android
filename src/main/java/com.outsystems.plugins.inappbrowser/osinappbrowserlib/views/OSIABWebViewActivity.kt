@@ -4,12 +4,12 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.view.Gravity
 import android.util.Log
-import android.graphics.Bitmap
+import android.view.Gravity
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
@@ -40,7 +40,11 @@ import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents.OSIABWe
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.net.HttpURLConnection
+import java.net.URL
 
 class OSIABWebViewActivity : AppCompatActivity() {
 
@@ -304,6 +308,31 @@ class OSIABWebViewActivity : AppCompatActivity() {
         }
     }
 
+    private fun openPdfViewer(url: String) {
+        val intent = Intent(this@OSIABWebViewActivity, OSIABPdfViewerActivity::class.java).apply {
+            putExtra("PDF_URL", url)
+            putExtra(OSIABPdfViewerActivity.WEB_VIEW_OPTIONS_EXTRA, options)
+        }
+        startActivity(intent)
+    }
+
+    private fun isContentTypeApplicationPdf(urlString: String): Boolean {
+        return try {
+            val url = URL(urlString)
+            (url.openConnection() as? HttpURLConnection)?.run {
+                instanceFollowRedirects = true
+                requestMethod = "HEAD"
+                connect()
+                val type = contentType
+                val disposition = getHeaderField("Content-Disposition")
+                type == "application/pdf" ||
+                        (type == null && disposition?.contains(".pdf", ignoreCase = true) == true)
+            } ?: false
+        } catch (_: Exception) {
+            false
+        }
+    }
+
     /*
      * Inner class with implementation for WebViewClient
      */
@@ -369,6 +398,16 @@ class OSIABWebViewActivity : AppCompatActivity() {
                 // handle every http and https link by loading it in the WebView
                 urlString.startsWith("http:") || urlString.startsWith("https:") -> {
                     view?.loadUrl(urlString)
+
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        if (isContentTypeApplicationPdf(urlString)) {
+                            withContext(Dispatchers.Main) {
+                                view?.stopLoading()
+                                openPdfViewer(urlString)
+                            }
+                        }
+                    }
+
                     if (showURL) urlText.text = urlString
                     true
                 }
