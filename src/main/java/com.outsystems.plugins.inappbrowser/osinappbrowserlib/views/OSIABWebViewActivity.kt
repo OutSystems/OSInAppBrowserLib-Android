@@ -493,10 +493,12 @@ class OSIABWebViewActivity : AppCompatActivity() {
             // let all errors first be handled by the WebView default error handling mechanism
             super.onReceivedError(view, request, error)
 
-            // we only want to show the error screen for some errors (e.g. no internet)
-            // e.g. we don't want to show it for an error where an image fails to load
+            // We only want to show the error screen for some errors (e.g. no internet)
+            // e.g. we don't want to show it for an error where an image fails to load.
+            // Also, we only want to show the error screen for errors in loading the main page,
+            // a webpage may have errors loading resources but the page itself may still load.
             error?.let {
-                if (errorsToHandle.contains(it.errorCode)) {
+                if (errorsToHandle.contains(it.errorCode) && request?.isForMainFrame == true) {
                     hasLoadError = true
                     showErrorScreen()
                 }
