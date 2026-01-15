@@ -85,7 +85,6 @@ lint/tmp/
 # lint/reports/
 
 .DS_Store
-Gemfile.lock
 
 scripts/tmp
 
