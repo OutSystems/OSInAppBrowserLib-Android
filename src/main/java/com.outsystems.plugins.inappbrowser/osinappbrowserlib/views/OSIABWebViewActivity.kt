@@ -148,6 +148,15 @@ class OSIABWebViewActivity : AppCompatActivity() {
             return File.createTempFile("${prefix}${timeStamp}_", suffix, storageDir)
         }
 
+        init {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                try {
+                    WebView.setDataDirectorySuffix("OSInAppBrowser")
+                } catch (e: Exception) {
+                    Log.d(LOG_TAG, "Suffix already set or error: ${e.message}")
+                }
+            }
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -164,7 +173,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
 
-        sendWebViewEvent(OSIABWebViewEvent(browserId, this@OSIABWebViewActivity))
+        sendWebViewEvent(OSIABEvents.OSIABWebViewEvent(browserId))
 
         appName = applicationInfo.loadLabel(packageManager).toString()
 
@@ -917,6 +926,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
     private fun sendWebViewEvent(event: OSIABEvents) {
         lifecycleScope.launch {
             OSIABEvents.postEvent(event)
+            OSIABEvents.broadcastEvent(this@OSIABWebViewActivity, event)
         }
     }
 

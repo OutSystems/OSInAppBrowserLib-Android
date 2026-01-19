@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFlowHelperInterface
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivity
@@ -71,10 +72,12 @@ class OSIABWebViewRouterAdapter(
      * @param url URL to be opened.
      * @param completionHandler The callback with the result of opening the url.
      */
+    @OptIn(RequiresEventBridgeRegistration::class)
     override fun handleOpen(url: String, completionHandler: (Boolean) -> Unit) {
         lifecycleScope.launch {
             try {
                 // Collect the browser events
+                OSIABEvents.registerReceiver(context)
                 var eventsJob: Job? = null
                 eventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
                     when (event) {
