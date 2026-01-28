@@ -1,3 +1,5 @@
+@file:OptIn(com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration::class)
+
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers
 
 import android.content.ComponentName
@@ -11,7 +13,6 @@ import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsServiceConnection
 import androidx.browser.customtabs.CustomTabsSession
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
-import com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABCustomTabsControllerActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -36,7 +37,6 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
         flowHelper: OSIABFlowHelperInterface,
         customTabsSessionCallback: (CustomTabsSession?) -> Unit
     ) {
-        OSIABEvents.registerReceiver(context)
         CustomTabsClient.bindCustomTabsService(
             context,
             packageName,
@@ -56,7 +56,6 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
         )
     }
 
-    @OptIn(RequiresEventBridgeRegistration::class)
     private inner class CustomTabsCallbackImpl(
         private val browserId: String,
         private val lifecycleScope: CoroutineScope,

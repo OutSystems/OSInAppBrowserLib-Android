@@ -11,7 +11,6 @@ import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewA
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
-import java.lang.ref.WeakReference
 import java.util.UUID
 
 class OSIABWebViewRouterAdapter(
@@ -39,30 +38,41 @@ class OSIABWebViewRouterAdapter(
         const val CUSTOM_HEADERS_EXTRA = "CUSTOM_HEADERS_EXTRA"
     }
 
-    private var webViewActivityRef: WeakReference<OSIABWebViewActivity>? = null
+    private var isFinished = false
 
-    private fun setWebViewActivity(activity: OSIABWebViewActivity?) {
-        webViewActivityRef = if (activity == null) {
-            null
-        } else {
-            WeakReference(activity)
+    private fun finalizeBrowser() {
+        if (!isFinished) {
+            isFinished = true
+            onBrowserFinished()
+            OSIABEvents.unregisterReceiver(context)
         }
     }
 
-    private fun getWebViewActivity(): OSIABWebViewActivity? {
-        return webViewActivityRef?.get()
-    }
-
+    /**
+     * Closes the WebView by sending a broadcast to the separate process.
+     * The WebView activity will receive this and call finish() on itself.
+     */
+    @OptIn(RequiresEventBridgeRegistration::class)
     override fun close(completionHandler: (Boolean) -> Unit) {
-        getWebViewActivity().let { activity ->
-            if(activity == null) {
-                completionHandler(false)
-            }
-            else {
-                activity.finish()
-                setWebViewActivity(null)
-                onBrowserFinished()
+        if (isFinished) {
+            completionHandler(true)
+            return
+        }
+
+        // Send close broadcast to the WebView process
+        val closeIntent = Intent(OSIABEvents.ACTION_CLOSE_WEBVIEW).apply {
+            setPackage(context.packageName)
+            putExtra(OSIABEvents.EXTRA_BROWSER_ID, browserId)
+        }
+        context.sendBroadcast(closeIntent)
+
+        // Listen for the BrowserFinished event to confirm close
+        var closeJob: Job? = null
+        closeJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
+            if (event is OSIABEvents.BrowserFinished) {
+                finalizeBrowser()
                 completionHandler(true)
+                closeJob?.cancel()
             }
         }
     }
@@ -82,15 +92,13 @@ class OSIABWebViewRouterAdapter(
                 eventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
                     when (event) {
                         is OSIABEvents.OSIABWebViewEvent -> {
-                            setWebViewActivity(event.activity)
                             completionHandler(true)
                         }
                         is OSIABEvents.BrowserPageLoaded -> {
                             onBrowserPageLoaded()
                         }
                         is OSIABEvents.BrowserFinished -> {
-                            setWebViewActivity(null)
-                            onBrowserFinished()
+                            finalizeBrowser()
                             eventsJob?.cancel()
                         }
                         is OSIABEvents.BrowserPageNavigationCompleted -> {
@@ -116,6 +124,7 @@ class OSIABWebViewRouterAdapter(
                 )
 
             } catch (e: Exception) {
+                finalizeBrowser()
                 completionHandler(false)
             }
         }

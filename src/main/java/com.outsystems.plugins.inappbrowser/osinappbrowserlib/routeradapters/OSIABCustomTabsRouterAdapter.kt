@@ -1,3 +1,5 @@
+@file:OptIn(com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration::class)
+
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters
 
 import android.content.Context
@@ -6,7 +8,6 @@ import android.net.Uri
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.browser.customtabs.CustomTabsSession
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
-import com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABCustomTabsSessionHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABCustomTabsSessionHelperInterface
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFlowHelperInterface
@@ -40,10 +41,13 @@ class OSIABCustomTabsRouterAdapter(
 
     // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the CustomTabs instance
     private var isFirstLoad = true
+    private var isFinished = false
 
-    @OptIn(RequiresEventBridgeRegistration::class)
     override fun close(completionHandler: (Boolean) -> Unit) {
-        OSIABEvents.registerReceiver(context)
+        if (isFinished) {
+            completionHandler(true)
+            return
+        }
         var closeEventJob: Job? = null
 
         closeEventJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
@@ -144,7 +148,6 @@ class OSIABCustomTabsRouterAdapter(
     }
 
     override fun handleOpen(url: String, completionHandler: (Boolean) -> Unit) {
-        OSIABEvents.registerReceiver(context)
         lifecycleScope.launch {
             try {
                 val uri = Uri.parse(url)
@@ -169,7 +172,6 @@ class OSIABCustomTabsRouterAdapter(
         }
     }
 
-    @OptIn(RequiresEventBridgeRegistration::class)
     private fun openCustomTabsIntent(session: CustomTabsSession, uri: Uri, completionHandler: (Boolean) -> Unit) {
         val customTabsIntent = buildCustomTabsIntent(session)
         var eventsJob: Job? = null
@@ -178,13 +180,16 @@ class OSIABCustomTabsRouterAdapter(
                 is OSIABEvents.OSIABCustomTabsEvent -> {
                     if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY) {
                         try {
-                            customTabsIntent.launchUrl(event.context, uri)
-                            completionHandler(true)
+                            event.context?.let { ctx ->
+                                customTabsIntent.launchUrl(ctx, uri)
+                                completionHandler(true)
+                            } ?: completionHandler(false)
                         } catch (e: Exception) {
                             completionHandler(false)
                         }
                     }
                     else if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                        isFinished = true
                         onBrowserFinished()
                         eventsJob?.cancel()
                     }
@@ -198,6 +203,7 @@ class OSIABCustomTabsRouterAdapter(
                 is OSIABEvents.BrowserFinished -> {
                     // Ensure that custom tabs controller activity is fully destroyed
                     startCustomTabsControllerActivity(true)
+                    isFinished = true
                     onBrowserFinished()
                     eventsJob?.cancel()
                 }

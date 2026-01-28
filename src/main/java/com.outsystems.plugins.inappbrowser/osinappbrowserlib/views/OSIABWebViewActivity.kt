@@ -2,16 +2,18 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib.views
 
 import android.Manifest
 import android.app.Activity
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Gravity
-import android.graphics.Bitmap
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
@@ -39,7 +41,6 @@ import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
-import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents.OSIABWebViewEvent
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABPdfHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
@@ -68,6 +69,8 @@ class OSIABWebViewActivity : AppCompatActivity() {
     private lateinit var options: OSIABWebViewOptions
     private lateinit var appName: String
     private lateinit var browserId: String
+
+    private var closeReceiver: BroadcastReceiver? = null
 
     // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the WebView
     private var isFirstLoad = true
@@ -173,6 +176,23 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
 
+        // Register receiver for close commands from main process
+        closeReceiver = object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                val targetBrowserId = intent?.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID)
+                if (targetBrowserId == browserId) {
+                    finish()
+                }
+            }
+        }
+        val filter = IntentFilter(OSIABEvents.ACTION_CLOSE_WEBVIEW)
+        ContextCompat.registerReceiver(
+            this,
+            closeReceiver,
+            filter,
+            ContextCompat.RECEIVER_NOT_EXPORTED
+        )
+
         sendWebViewEvent(OSIABEvents.OSIABWebViewEvent(browserId))
 
         appName = applicationInfo.loadLabel(packageManager).toString()
@@ -250,6 +270,14 @@ class OSIABWebViewActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        closeReceiver?.let {
+            try {
+                unregisterReceiver(it)
+            } catch (e: Exception) {
+                // Receiver may not be registered, ignore
+            }
+            closeReceiver = null
+        }
         webView.destroy()
         super.onDestroy()
     }
@@ -925,7 +953,6 @@ class OSIABWebViewActivity : AppCompatActivity() {
      */
     private fun sendWebViewEvent(event: OSIABEvents) {
         lifecycleScope.launch {
-            OSIABEvents.postEvent(event)
             OSIABEvents.broadcastEvent(this@OSIABWebViewActivity, event)
         }
     }
