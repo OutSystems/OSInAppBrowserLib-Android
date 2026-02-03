@@ -85,10 +85,10 @@ class OSIABWebViewRouterAdapter(
     @OptIn(RequiresEventBridgeRegistration::class)
     override fun handleOpen(url: String, completionHandler: (Boolean) -> Unit) {
         lifecycleScope.launch {
+            var eventsJob: Job? = null
             try {
                 // Collect the browser events
                 OSIABEvents.registerReceiver(context)
-                var eventsJob: Job? = null
                 eventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
                     when (event) {
                         is OSIABEvents.OSIABWebViewEvent -> {
@@ -124,7 +124,8 @@ class OSIABWebViewRouterAdapter(
                 )
 
             } catch (e: Exception) {
-                finalizeBrowser()
+                eventsJob?.cancel()
+                OSIABEvents.unregisterReceiver(context)
                 completionHandler(false)
             }
         }
