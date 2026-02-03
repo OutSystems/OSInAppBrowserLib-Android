@@ -16,6 +16,7 @@ import org.junit.runner.RunWith
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.doThrow
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.`when`
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
@@ -70,7 +71,7 @@ class OSIABWebViewRouterAdapterTests {
     fun test_handleOpen_ableToOpenIt_returnsTrue_and_when_browserFinished_then_browserFinishedTriggered() =
         runTest(StandardTestDispatcher()) {
             val context = mockContext(ableToOpenURL = true)
-            val flowHelperMock = OSIABFlowHelperMock().apply { event = OSIABEvents.BrowserFinished("") }
+            val flowHelperMock = OSIABFlowHelperMock().apply { events = listOf(OSIABEvents.BrowserFinished("")) }
             val sut = OSIABWebViewRouterAdapter(
                 context = context,
                 lifecycleScope = this,
@@ -95,7 +96,10 @@ class OSIABWebViewRouterAdapterTests {
             var pageNavigationCalled = false
             val context = mockContext(ableToOpenURL = true)
             val flowHelperMock = OSIABFlowHelperMock().apply {
-                event = OSIABEvents.BrowserPageNavigationCompleted("", "https://test")
+                events = listOf(
+                    OSIABEvents.BrowserPageNavigationCompleted("", "https://test"),
+                    OSIABEvents.OSIABWebViewEvent("")
+                )
             }
             val sut = OSIABWebViewRouterAdapter(
                 context = context,
@@ -123,6 +127,7 @@ class OSIABWebViewRouterAdapterTests {
 
     private fun mockContext(ableToOpenURL: Boolean = false): Context {
         val context = mock(Context::class.java)
+        `when`(context.applicationContext).thenReturn(context)
         if (!ableToOpenURL) {
             doThrow(RuntimeException("Unable to open URL")).`when`(context).startActivity(any(Intent::class.java))
         }

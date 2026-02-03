@@ -6,7 +6,6 @@ import android.content.Intent
 import android.content.IntentFilter
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
-import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivity
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import java.io.Serializable
@@ -32,8 +31,7 @@ sealed class OSIABEvents : Serializable {
     ) : OSIABEvents()
     
     data class OSIABWebViewEvent(
-        override val browserId: String,
-        @Transient val activity: OSIABWebViewActivity? = null
+        override val browserId: String
     ) : OSIABEvents()
 
     companion object {

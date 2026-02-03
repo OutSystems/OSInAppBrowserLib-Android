@@ -59,13 +59,6 @@ class OSIABWebViewRouterAdapter(
             return
         }
 
-        // Send close broadcast to the WebView process
-        val closeIntent = Intent(OSIABEvents.ACTION_CLOSE_WEBVIEW).apply {
-            setPackage(context.packageName)
-            putExtra(OSIABEvents.EXTRA_BROWSER_ID, browserId)
-        }
-        context.sendBroadcast(closeIntent)
-
         // Listen for the BrowserFinished event to confirm close
         var closeJob: Job? = null
         closeJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
@@ -75,6 +68,13 @@ class OSIABWebViewRouterAdapter(
                 closeJob?.cancel()
             }
         }
+
+        // Send close broadcast to the WebView process
+        val closeIntent = Intent(OSIABEvents.ACTION_CLOSE_WEBVIEW).apply {
+            setPackage(context.packageName)
+            putExtra(OSIABEvents.EXTRA_BROWSER_ID, browserId)
+        }
+        context.sendBroadcast(closeIntent)
     }
 
     /**
