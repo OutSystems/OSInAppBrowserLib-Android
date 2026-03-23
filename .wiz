@@ -1,4 +1,4 @@
 ignore:
-    global_paths:
-        "scripts/**":
-            reason: BY_DESIGN
+  global_paths:
+    /scripts/**:
+      reason: BY_DESIGN
