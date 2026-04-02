@@ -23,6 +23,14 @@
             android:theme="@style/AppTheme.WebView"
             android:enableOnBackInvokedCallback="true"
             tools:targetApi="33" />
+        <activity
+            android:name=".views.OSIABWebViewActivitySharing"
+            android:exported="false"
+            android:configChanges="orientation|screenSize|uiMode"
+            android:label="OSIABWebViewActivity"
+            android:theme="@style/AppTheme.WebView"
+            android:enableOnBackInvokedCallback="true"
+            tools:targetApi="33" />
         <activity android:name=".views.OSIABCustomTabsControllerActivity"
             android:exported="false"
             android:theme="@style/Theme.Transparent"

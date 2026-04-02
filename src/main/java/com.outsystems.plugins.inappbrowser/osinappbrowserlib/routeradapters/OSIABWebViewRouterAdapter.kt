@@ -8,6 +8,7 @@ import com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridge
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFlowHelperInterface
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivity
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivitySharing
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
@@ -108,9 +109,15 @@ class OSIABWebViewRouterAdapter(
                     }
                 }
 
+                val activityClass = if (options.isIsolated) {
+                    OSIABWebViewActivity::class.java
+                } else {
+                    OSIABWebViewActivitySharing::class.java
+                }
+
                 context.startActivity(
                     Intent(
-                        context, OSIABWebViewActivity::class.java
+                        context, activityClass
                     ).apply {
                         putExtra(OSIABEvents.EXTRA_BROWSER_ID, browserId)
                         putExtra(WEB_VIEW_URL_EXTRA, url)

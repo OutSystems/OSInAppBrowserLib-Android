@@ -1,6 +1,7 @@
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.views
 
 import android.Manifest
+import android.app.Application
 import android.app.Activity
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -54,7 +55,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-class OSIABWebViewActivity : AppCompatActivity() {
+open class OSIABWebViewActivity : AppCompatActivity() {
 
     private lateinit var webView: WebView
     private lateinit var closeButton: TextView
@@ -154,7 +155,10 @@ class OSIABWebViewActivity : AppCompatActivity() {
         init {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                 try {
-                    WebView.setDataDirectorySuffix("OSInAppBrowser")
+                    val processName = Application.getProcessName()
+                    if (processName.endsWith(":OSInAppBrowser")) {
+                        WebView.setDataDirectorySuffix("OSInAppBrowser")
+                    }
                 } catch (e: Exception) {
                     Log.d(LOG_TAG, "Suffix already set or error: ${e.message}")
                 }
