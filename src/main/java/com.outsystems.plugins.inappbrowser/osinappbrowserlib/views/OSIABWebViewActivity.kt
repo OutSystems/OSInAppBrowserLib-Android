@@ -345,7 +345,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
         mimeType: String?,
         contentDisposition: String?
     ) {
-        if ((mimeType == "application/pdf" || (contentDisposition?.contains(".pdf") == true)) &&
+        if (OSIABPdfHelper.isPdf(mimeType, contentDisposition) &&
             (!url.isNullOrEmpty() && !url.startsWith(PDF_VIEWER_URL_PREFIX))
         ) {
             lifecycleScope.launch(Dispatchers.IO) {
