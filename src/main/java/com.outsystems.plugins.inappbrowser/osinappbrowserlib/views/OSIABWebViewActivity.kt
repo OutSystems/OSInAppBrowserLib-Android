@@ -219,9 +219,9 @@ class OSIABWebViewActivity : AppCompatActivity() {
 
         setupWebView()
 
-        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
-            Log.e("downloadlistener", "mimeType=$mimetype, url=$url")
-            if (mimetype == "application/pdf" && !url.startsWith(PDF_VIEWER_URL_PREFIX)) {
+        webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
+            Log.e("downloadlistener", "mimeType=$mimeType, contentDisposition=$contentDisposition url=$url")
+            if ((mimeType == "application/pdf" || contentDisposition.contains(".pdf")) && !url.startsWith(PDF_VIEWER_URL_PREFIX)) {
                 lifecycleScope.launch(Dispatchers.IO) {
                     val pdfFile = try {
                         OSIABPdfHelper.downloadPdfToCache(this@OSIABWebViewActivity, url)
