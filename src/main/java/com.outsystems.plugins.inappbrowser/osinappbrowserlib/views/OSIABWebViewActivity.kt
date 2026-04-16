@@ -218,6 +218,29 @@ class OSIABWebViewActivity : AppCompatActivity() {
         enableThirdPartyCookies()
 
         setupWebView()
+
+        webView.setDownloadListener { url, userAgent, contentDisposition, mimetype, contentLength ->
+            Log.e("downloadlistener", "mimeType=$mimetype, url=$url")
+            if (mimetype == "application/pdf" && !url.startsWith(PDF_VIEWER_URL_PREFIX)) {
+                lifecycleScope.launch(Dispatchers.IO) {
+                    val pdfFile = try {
+                        OSIABPdfHelper.downloadPdfToCache(this@OSIABWebViewActivity, url)
+                    } catch (_: IOException) {
+                        null
+                    }
+                    if (pdfFile != null) {
+                        withContext(Dispatchers.Main) {
+                            webView.stopLoading()
+                            originalUrl = url
+                            val pdfJsUrl =
+                                PDF_VIEWER_URL_PREFIX + Uri.encode("file://${pdfFile.absolutePath}")
+                            webView.loadUrl(pdfJsUrl)
+                        }
+                    }
+                }
+            }
+        }
+
         if (urlToOpen != null) {
             handleLoadUrl(urlToOpen, customHeaders)
             showLoadingScreen()
@@ -253,25 +276,7 @@ class OSIABWebViewActivity : AppCompatActivity() {
     }
 
     private fun handleLoadUrl(url: String, additionalHttpHeaders: Map<String, String>? = null) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            if (OSIABPdfHelper.isContentTypeApplicationPdf(url)) {
-                val pdfFile = try { OSIABPdfHelper.downloadPdfToCache(this@OSIABWebViewActivity, url) } catch (_: IOException) { null }
-                if (pdfFile != null) {
-                    withContext(Dispatchers.Main) {
-                        webView.stopLoading()
-                        originalUrl = url
-                        val pdfJsUrl =
-                            PDF_VIEWER_URL_PREFIX + Uri.encode("file://${pdfFile.absolutePath}")
-                        webView.loadUrl(pdfJsUrl)
-                    }
-                    return@launch
-                }
-            }
-
-            withContext(Dispatchers.Main) {
-                webView.loadUrl(url, additionalHttpHeaders ?: emptyMap())
-            }
-        }
+        webView.loadUrl(url, additionalHttpHeaders ?: emptyMap())
     }
 
 
