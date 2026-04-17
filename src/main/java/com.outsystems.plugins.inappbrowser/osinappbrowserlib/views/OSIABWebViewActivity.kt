@@ -254,7 +254,11 @@ class OSIABWebViewActivity : AppCompatActivity() {
     }
 
     private fun handleLoadUrl(url: String, additionalHttpHeaders: Map<String, String>? = null) {
-        webView.loadUrl(url, additionalHttpHeaders ?: emptyMap())
+        if (additionalHttpHeaders.isNullOrEmpty()) {
+            webView.loadUrl(url)
+        } else {
+            webView.loadUrl(url, additionalHttpHeaders)
+        }
     }
 
 
