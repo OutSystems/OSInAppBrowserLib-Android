@@ -3,175 +3,51 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers
 import android.content.Context
 import io.mockk.every
 import io.mockk.mockk
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
-import io.mockk.verify
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.net.HttpURLConnection
 import java.net.ServerSocket
 import java.net.Socket
-import java.net.URL
 import java.nio.file.Files
 import kotlin.concurrent.thread
 
 class OSIABPdfHelperTest {
 
+    // region isPdf
+
     @Test
-    fun `isContentTypeApplicationPdf returns true if HEAD is PDF`() {
-        mockkObject(OSIABPdfHelper)
-        every { OSIABPdfHelper.checkPdfByRequest(any(), "HEAD", any()) } returns true
-
-        val result = OSIABPdfHelper.isContentTypeApplicationPdf("http://example.com")
-
-        assertTrue(result)
-        verify { OSIABPdfHelper.checkPdfByRequest(any(), "HEAD", any()) }
-        verify(exactly = 0) { OSIABPdfHelper.checkPdfByRequest(any(), "GET", any()) }
-        unmockkObject(OSIABPdfHelper)
+    fun `isPdf returns true when mimeType is application pdf`() {
+        assertTrue(OSIABPdfHelper.isPdf("application/pdf", null))
     }
 
     @Test
-    fun `isContentTypeApplicationPdf falls back to GET if HEAD fails`() {
-        mockkObject(OSIABPdfHelper)
-        every { OSIABPdfHelper.checkPdfByRequest(any(), "HEAD", any()) } returns false
-        every { OSIABPdfHelper.checkPdfByRequest(any(), "GET", any()) } returns true
-
-        val result = OSIABPdfHelper.isContentTypeApplicationPdf("http://example.com")
-
-        assertTrue(result)
-        verify { OSIABPdfHelper.checkPdfByRequest(any(), "HEAD", any()) }
-        verify { OSIABPdfHelper.checkPdfByRequest(any(), "GET", any()) }
-        unmockkObject(OSIABPdfHelper)
+    fun `isPdf returns true when contentDisposition contains pdf extension`() {
+        assertTrue(OSIABPdfHelper.isPdf(null, "attachment; filename=test.pdf"))
     }
 
     @Test
-    fun `isContentTypeApplicationPdf returns false if both HEAD and GET fail`() {
-        mockkObject(OSIABPdfHelper)
-        every { OSIABPdfHelper.checkPdfByRequest(any(), "HEAD", any()) } returns false
-        every { OSIABPdfHelper.checkPdfByRequest(any(), "GET", any()) } returns false
-
-        val result = OSIABPdfHelper.isContentTypeApplicationPdf("http://example.com")
-
-        assertFalse(result)
-        verify { OSIABPdfHelper.checkPdfByRequest(any(), "HEAD", any()) }
-        verify { OSIABPdfHelper.checkPdfByRequest(any(), "GET", any()) }
-        unmockkObject(OSIABPdfHelper)
+    fun `isPdf returns true when both mimeType and contentDisposition indicate pdf`() {
+        assertTrue(OSIABPdfHelper.isPdf("application/pdf", "attachment; filename=test.pdf"))
     }
 
     @Test
-    fun `isContentTypeApplicationPdf returns false if exception occurs`() {
-        mockkObject(OSIABPdfHelper)
-        every {
-            OSIABPdfHelper.checkPdfByRequest(
-                any(),
-                any(),
-                any()
-            )
-        } throws RuntimeException("Network error")
-
-        val result = OSIABPdfHelper.isContentTypeApplicationPdf("http://example.com")
-
-        assertFalse(result)
-        verify { OSIABPdfHelper.checkPdfByRequest(any(), "HEAD", any()) }
-        unmockkObject(OSIABPdfHelper)
+    fun `isPdf returns true when mimeType is not pdf but contentDisposition contains pdf extension`() {
+        assertTrue(OSIABPdfHelper.isPdf("text/html", "attachment; filename=report.pdf"))
     }
 
     @Test
-    fun `returns true when content type is application_pdf`() {
-        val urlFactory = mockk<OSIABPdfHelper.UrlFactory>()
-        val url = mockk<URL>()
-        val conn = mockk<HttpURLConnection>(relaxed = true)
-        every { urlFactory.create(any()) } returns url
-        every { url.openConnection() } returns conn
-        every { conn.contentType } returns "application/pdf"
-        every { conn.connect() } returns Unit
-
-        val result = OSIABPdfHelper.checkPdfByRequest("http://example.com/test.pdf", "HEAD", urlFactory)
-
-        assertTrue(result)
-        verify { conn.connect() }
-        verify { conn.disconnect() }
+    fun `isPdf returns false when neither mimeType nor contentDisposition indicate pdf`() {
+        assertFalse(OSIABPdfHelper.isPdf("text/html", "inline"))
     }
 
     @Test
-    fun `returns true when disposition header contains pdf and content type is empty`() {
-        val urlFactory = mockk<OSIABPdfHelper.UrlFactory>()
-        val url = mockk<URL>()
-        val conn = mockk<HttpURLConnection>(relaxed = true)
-        every { urlFactory.create(any()) } returns url
-        every { url.openConnection() } returns conn
-        every { conn.contentType } returns null
-        every { conn.getHeaderField("Content-Disposition") } returns "attachment; filename=test.pdf"
-        every { conn.connect() } returns Unit
-
-        val result = OSIABPdfHelper.checkPdfByRequest("http://example.com/test.pdf", "HEAD", urlFactory)
-
-        assertTrue(result)
-        verify { conn.connect() }
-        verify { conn.disconnect() }
+    fun `isPdf returns false when both are null`() {
+        assertFalse(OSIABPdfHelper.isPdf(null, null))
     }
 
-    @Test
-    fun `returns false when neither content type nor disposition indicate pdf`() {
-        val urlFactory = mockk<OSIABPdfHelper.UrlFactory>()
-        val url = mockk<URL>()
-        val conn = mockk<HttpURLConnection>(relaxed = true)
-        every { urlFactory.create(any()) } returns url
-        every { url.openConnection() } returns conn
-        every { conn.contentType } returns "text/html"
-        every { conn.getHeaderField("Content-Disposition") } returns "inline"
-        every { conn.connect() } returns Unit
+    // endregion
 
-        val result = OSIABPdfHelper.checkPdfByRequest("http://example.com/test.pdf", "HEAD", urlFactory)
-
-        assertFalse(result)
-        verify { conn.connect() }
-        verify { conn.disconnect() }
-    }
-
-    @Test
-    fun `sets Range header for GET method`() {
-        val urlFactory = mockk<OSIABPdfHelper.UrlFactory>()
-        val url = mockk<URL>()
-        val conn = mockk<HttpURLConnection>(relaxed = true)
-        every { urlFactory.create(any()) } returns url
-        every { url.openConnection() } returns conn
-        every { conn.contentType } returns "application/pdf"
-        every { conn.connect() } returns Unit
-
-        OSIABPdfHelper.checkPdfByRequest("http://example.com/test.pdf", "GET", urlFactory)
-
-        verify { conn.setRequestProperty("Range", "bytes=0-0") }
-        verify { conn.connect() }
-        verify { conn.disconnect() }
-    }
-
-    @Test
-    fun `returns false if connection is null`() {
-        val urlFactory = mockk<OSIABPdfHelper.UrlFactory>()
-        val url = mockk<URL>()
-        every { urlFactory.create(any()) } returns url
-        every { url.openConnection() } returns null
-
-        val result = OSIABPdfHelper.checkPdfByRequest("http://example.com/test.pdf", "HEAD", urlFactory)
-
-        assertFalse(result)
-    }
-
-    @Test
-    fun `returns false if exception is thrown`() {
-        val urlFactory = mockk<OSIABPdfHelper.UrlFactory>()
-        every { urlFactory.create(any()) } throws RuntimeException("Network error")
-
-        val result = try {
-            OSIABPdfHelper.checkPdfByRequest("http://example.com/test.pdf", "HEAD", urlFactory)
-        } catch (_: Exception) {
-            false
-        }
-
-        assertFalse(result)
-    }
+    // region downloadPdfToCache
 
     @Test
     fun `downloadPdfToCache creates file with content`() {
@@ -205,4 +81,6 @@ class OSIABPdfHelperTest {
         file.delete()
         cacheDir.deleteRecursively()
     }
+
+    // endregion
 }
