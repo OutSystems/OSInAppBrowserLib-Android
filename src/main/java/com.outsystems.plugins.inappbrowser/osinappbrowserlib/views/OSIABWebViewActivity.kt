@@ -251,6 +251,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         enableThirdPartyCookies()
 
         setupWebView()
+
         if (urlToOpen != null) {
             handleLoadUrl(urlToOpen, customHeaders)
             showLoadingScreen()
@@ -294,24 +295,10 @@ open class OSIABWebViewActivity : AppCompatActivity() {
     }
 
     private fun handleLoadUrl(url: String, additionalHttpHeaders: Map<String, String>? = null) {
-        lifecycleScope.launch(Dispatchers.IO) {
-            if (OSIABPdfHelper.isContentTypeApplicationPdf(url)) {
-                val pdfFile = try { OSIABPdfHelper.downloadPdfToCache(this@OSIABWebViewActivity, url) } catch (_: IOException) { null }
-                if (pdfFile != null) {
-                    withContext(Dispatchers.Main) {
-                        webView.stopLoading()
-                        originalUrl = url
-                        val pdfJsUrl =
-                            PDF_VIEWER_URL_PREFIX + Uri.encode("file://${pdfFile.absolutePath}")
-                        webView.loadUrl(pdfJsUrl)
-                    }
-                    return@launch
-                }
-            }
-
-            withContext(Dispatchers.Main) {
-                webView.loadUrl(url, additionalHttpHeaders ?: emptyMap())
-            }
+        if (additionalHttpHeaders.isNullOrEmpty()) {
+            webView.loadUrl(url)
+        } else {
+            webView.loadUrl(url, additionalHttpHeaders)
         }
     }
 
@@ -368,6 +355,14 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                 options.showURL && options.showToolbar
             )
         webView.webChromeClient = customWebChromeClient()
+
+        webView.setDownloadListener { url, _, contentDisposition, mimeType, _ ->
+            handleWebViewDownload(
+                url = url,
+                mimeType = mimeType,
+                contentDisposition = contentDisposition
+            )
+        }
     }
 
     /**
@@ -385,6 +380,38 @@ open class OSIABWebViewActivity : AppCompatActivity() {
      */
     private fun customWebChromeClient(): WebChromeClient {
         return OSIABWebChromeClient()
+    }
+
+    /**
+     * Implement the WebKit DownloadListener and handle downloading and previewing PDF files
+     */
+    private fun handleWebViewDownload(
+        url: String?,
+        mimeType: String?,
+        contentDisposition: String?
+    ) {
+        if (OSIABPdfHelper.isPdf(mimeType, contentDisposition) &&
+            (!url.isNullOrEmpty() && !url.startsWith(PDF_VIEWER_URL_PREFIX))
+        ) {
+            lifecycleScope.launch(Dispatchers.IO) {
+                val pdfFile = try {
+                    OSIABPdfHelper.downloadPdfToCache(this@OSIABWebViewActivity, url)
+                } catch (_: IOException) {
+                    // can happen if we try to press the "save" button in pdf viewer
+                    //  which returns a blob url that we won't be able to download
+                    null
+                }
+                if (pdfFile != null) {
+                    withContext(Dispatchers.Main) {
+                        webView.stopLoading()
+                        originalUrl = url
+                        val pdfJsUrl =
+                            PDF_VIEWER_URL_PREFIX + Uri.encode("file://${pdfFile.absolutePath}")
+                        webView.loadUrl(pdfJsUrl)
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -855,7 +882,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         if (!showNavigationButtons) {
             navigationView.removeView(nav)
         } else defineNavigationButtons(isLeftRight, content)
-        
+
         if (!showURL) navigationView.removeView(urlText)
         else defineURLView(url, showNavigationButtons, navigationView, toolbarPosition, isLeftRight)
 

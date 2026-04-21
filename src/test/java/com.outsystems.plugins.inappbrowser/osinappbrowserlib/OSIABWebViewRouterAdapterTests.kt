@@ -5,7 +5,12 @@ import android.content.Intent
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFlowHelperMock
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters.OSIABWebViewRouterAdapter
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivity
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABWebViewActivitySharing
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -13,13 +18,17 @@ import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.ArgumentCaptor
 import org.mockito.ArgumentMatchers.any
 import org.mockito.Mockito.doThrow
 import org.mockito.Mockito.mock
+import org.mockito.Mockito.verify
 import org.mockito.Mockito.`when`
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class OSIABWebViewRouterAdapterTests {
 
     private val url = "https://www.outsystems.com/"
@@ -123,6 +132,68 @@ class OSIABWebViewRouterAdapterTests {
                 assertTrue(pageNavigationCalled)
             }
         }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun test_handleOpen_withIsolationEnabledOnSupportedAndroid_launchesIsolatedActivity() {
+        runTest(StandardTestDispatcher()) {
+            val context = mockContext(ableToOpenURL = true)
+            val sut = makeSUT(context, options, this)
+
+            sut.handleOpen(url) {}
+            advanceUntilIdle()
+
+            assertStartedActivity(context, OSIABWebViewActivity::class.java.name)
+        }
+    }
+
+    @Test
+    @Config(sdk = [27])
+    fun test_handleOpen_withIsolationEnabledBelowAndroid9_launchesSharingActivity() {
+        runTest(StandardTestDispatcher()) {
+            val context = mockContext(ableToOpenURL = true)
+            val sut = makeSUT(context, options, this)
+
+            sut.handleOpen(url) {}
+            advanceUntilIdle()
+
+            assertStartedActivity(context, OSIABWebViewActivitySharing::class.java.name)
+        }
+    }
+
+    @Test
+    @Config(sdk = [28])
+    fun test_handleOpen_withIsolationDisabledOnSupportedAndroid_launchesSharingActivity() {
+        runTest(StandardTestDispatcher()) {
+            val context = mockContext(ableToOpenURL = true)
+            val sut = makeSUT(context, options.copy(isIsolated = false), this)
+
+            sut.handleOpen(url) {}
+            advanceUntilIdle()
+
+            assertStartedActivity(context, OSIABWebViewActivitySharing::class.java.name)
+        }
+    }
+
+    private fun makeSUT(
+        context: Context,
+        options: OSIABWebViewOptions,
+        lifecycleScope: CoroutineScope
+    ) = OSIABWebViewRouterAdapter(
+        context = context,
+        lifecycleScope = lifecycleScope,
+        options = options,
+        flowHelper = OSIABFlowHelperMock(),
+        onBrowserPageLoaded = {},
+        onBrowserFinished = {},
+        onBrowserPageNavigationCompleted = {}
+    )
+
+    private fun assertStartedActivity(context: Context, expectedClassName: String) {
+        val intentCaptor = ArgumentCaptor.forClass(Intent::class.java)
+        verify(context).startActivity(intentCaptor.capture())
+        assertEquals(expectedClassName, intentCaptor.value.component?.className)
     }
 
     private fun mockContext(ableToOpenURL: Boolean = false): Context {

@@ -2,6 +2,7 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters
 
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration
@@ -109,7 +110,7 @@ class OSIABWebViewRouterAdapter(
                     }
                 }
 
-                val activityClass = if (options.isIsolated) {
+                val activityClass = if (options.isIsolated && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     OSIABWebViewActivity::class.java
                 } else {
                     OSIABWebViewActivitySharing::class.java
