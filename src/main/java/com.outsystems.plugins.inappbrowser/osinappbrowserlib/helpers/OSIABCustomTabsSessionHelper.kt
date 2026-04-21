@@ -1,3 +1,5 @@
+@file:OptIn(com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration::class)
+
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers
 
 import android.content.ComponentName

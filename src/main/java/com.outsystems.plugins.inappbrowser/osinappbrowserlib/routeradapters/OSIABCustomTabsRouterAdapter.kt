@@ -1,3 +1,5 @@
+@file:OptIn(com.outsystems.plugins.inappbrowser.osinappbrowserlib.RequiresEventBridgeRegistration::class)
+
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters
 
 import android.content.Context
@@ -39,8 +41,13 @@ class OSIABCustomTabsRouterAdapter(
 
     // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the CustomTabs instance
     private var isFirstLoad = true
+    private var isFinished = false
 
     override fun close(completionHandler: (Boolean) -> Unit) {
+        if (isFinished) {
+            completionHandler(true)
+            return
+        }
         var closeEventJob: Job? = null
 
         closeEventJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
@@ -173,13 +180,16 @@ class OSIABCustomTabsRouterAdapter(
                 is OSIABEvents.OSIABCustomTabsEvent -> {
                     if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY) {
                         try {
-                            customTabsIntent.launchUrl(event.context, uri)
-                            completionHandler(true)
+                            event.context?.let { ctx ->
+                                customTabsIntent.launchUrl(ctx, uri)
+                                completionHandler(true)
+                            } ?: completionHandler(false)
                         } catch (e: Exception) {
                             completionHandler(false)
                         }
                     }
                     else if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                        isFinished = true
                         onBrowserFinished()
                         eventsJob?.cancel()
                     }
@@ -193,6 +203,7 @@ class OSIABCustomTabsRouterAdapter(
                 is OSIABEvents.BrowserFinished -> {
                     // Ensure that custom tabs controller activity is fully destroyed
                     startCustomTabsControllerActivity(true)
+                    isFinished = true
                     onBrowserFinished()
                     eventsJob?.cancel()
                 }

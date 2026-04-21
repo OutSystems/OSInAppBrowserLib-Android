@@ -109,7 +109,7 @@ class OSIABCustomTabsRouterAdapterTests {
     fun test_handleOpen_withValidURL_launchesCustomTab_when_browserPageLoaded_then_browserPageLoadedTriggered() {
         runTest(StandardTestDispatcher()) {
             val context = mockContext(useValidURL = true, ableToOpenURL = true)
-            val flowHelperMock = OSIABFlowHelperMock().apply { event = OSIABEvents.BrowserPageLoaded("") }
+            val flowHelperMock = OSIABFlowHelperMock().apply { events = listOf(OSIABEvents.BrowserPageLoaded("")) }
             val sut = OSIABCustomTabsRouterAdapter(
                 context = context,
                 lifecycleScope = this,
@@ -134,7 +134,7 @@ class OSIABCustomTabsRouterAdapterTests {
     fun test_handleOpen_withValidURL_launchesCustomTab_when_browserFinished_then_browserFinishedTriggered() {
         runTest(StandardTestDispatcher()) {
             val context = mockContext(useValidURL = true, ableToOpenURL = true)
-            val flowHelperMock = OSIABFlowHelperMock().apply { event = OSIABEvents.BrowserFinished("") }
+            val flowHelperMock = OSIABFlowHelperMock().apply { events = listOf(OSIABEvents.BrowserFinished("")) }
             val sut = OSIABCustomTabsRouterAdapter(
                 context = context,
                 lifecycleScope = this,

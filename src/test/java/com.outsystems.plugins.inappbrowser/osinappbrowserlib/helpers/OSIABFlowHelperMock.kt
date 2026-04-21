@@ -7,13 +7,13 @@ import org.mockito.Mockito.mock
 
 class OSIABFlowHelperMock: OSIABFlowHelperInterface {
 
-    var event: OSIABEvents = OSIABEvents.BrowserPageLoaded("")
+    var events: List<OSIABEvents> = emptyList()
     override fun listenToEvents(
         browserId: String,
         scope: CoroutineScope,
         onEventReceived: (OSIABEvents) -> Unit
     ): Job {
-        onEventReceived(event)
+        events.forEach { onEventReceived(it) }
         return mock(Job::class.java)
     }
 }
