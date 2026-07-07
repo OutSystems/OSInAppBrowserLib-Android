@@ -5,7 +5,6 @@ package com.outsystems.plugins.inappbrowser.osinappbrowserlib.routeradapters
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.util.Log
 import androidx.browser.customtabs.CustomTabsIntent
 import androidx.browser.customtabs.CustomTabsSession
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
@@ -40,16 +39,11 @@ class OSIABCustomTabsRouterAdapter(
 
     private val browserId = UUID.randomUUID().toString()
 
-    private companion object {
-        const val TAG = "OSIABRouter"
-    }
-
     // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the CustomTabs instance
     private var isFirstLoad = true
     private var isFinished = false
 
     override fun close(completionHandler: (Boolean) -> Unit) {
-        Log.d(TAG, "close called (isFinished=$isFinished, browserId=$browserId)")
         if (isFinished) {
             completionHandler(true)
             return
@@ -59,7 +53,6 @@ class OSIABCustomTabsRouterAdapter(
         closeEventJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
             if(event is OSIABEvents.OSIABCustomTabsEvent
                 && event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
-                Log.d(TAG, "close: DESTROYED received -> completionHandler(true)")
                 completionHandler(true)
                 closeEventJob?.cancel()
             }
@@ -114,7 +107,6 @@ class OSIABCustomTabsRouterAdapter(
     }
 
     override fun handleOpen(url: String, completionHandler: (Boolean) -> Unit) {
-        Log.d(TAG, "handleOpen: url=$url, browserId=$browserId")
         lifecycleScope.launch {
             try {
                 val uri = Uri.parse(url)
@@ -125,7 +117,6 @@ class OSIABCustomTabsRouterAdapter(
                     flowHelper,
                     customTabsSessionCallback = {
                         if(it == null) {
-                            Log.d(TAG, "handleOpen: session is null -> completionHandler(false)")
                             completionHandler(false)
                             return@generateNewCustomTabsSession
                         }
@@ -133,14 +124,12 @@ class OSIABCustomTabsRouterAdapter(
                     }
                 )
             } catch (e: Exception) {
-                Log.d(TAG, "handleOpen: exception ${e.message}")
                 completionHandler(false)
             }
         }
     }
 
     private fun openCustomTabsIntent(session: CustomTabsSession, uri: Uri, completionHandler: (Boolean) -> Unit) {
-        Log.d(TAG, "openCustomTabsIntent: uri=$uri")
         val customTabsIntent = buildCustomTabsIntent(session)
         customTabsIntent.intent.data = uri
 
@@ -149,7 +138,6 @@ class OSIABCustomTabsRouterAdapter(
             when (event) {
                 is OSIABEvents.OSIABCustomTabsEvent -> {
                     if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
-                        Log.d(TAG, "openCustomTabsIntent: DESTROYED -> onBrowserFinished()")
                         isFinished = true
                         onBrowserFinished()
                         eventsJob?.cancel()
@@ -157,7 +145,6 @@ class OSIABCustomTabsRouterAdapter(
                 }
                 is OSIABEvents.BrowserPageLoaded -> {
                     if (isFirstLoad) {
-                        Log.d(TAG, "openCustomTabsIntent: BrowserPageLoaded -> onBrowserPageLoaded()")
                         onBrowserPageLoaded()
                         isFirstLoad = false
                     }
