@@ -8,6 +8,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Bundle
+import android.util.Log
 import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
 import androidx.browser.customtabs.CustomTabsServiceConnection
@@ -17,6 +18,8 @@ import com.outsystems.plugins.inappbrowser.osinappbrowserlib.views.OSIABCustomTa
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+
+private const val TAG = "OSIABSession"
 
 class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
     private fun getDefaultCustomTabsPackageName(context: Context): String? {
@@ -62,55 +65,34 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
         flowHelper: OSIABFlowHelperInterface,
     ) : CustomTabsCallback() {
 
-        private var isCustomTabsActivityOnTop = false
-        private var pendingTabHiddenEvent = false
-
         init {
             var browserEventsJob: Job? = null
-
             browserEventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
-                if(event is OSIABEvents.OSIABCustomTabsEvent) {
-                    when (event.action) {
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_RESUMED -> {
-                            isCustomTabsActivityOnTop = true
-                            if (pendingTabHiddenEvent) {
-                                pendingTabHiddenEvent = false
-                                lifecycleScope.launch {
-                                    OSIABEvents.postEvent(OSIABEvents.BrowserFinished(browserId))
-                                }
-                            }
-                        }
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_PAUSED -> {
-                            isCustomTabsActivityOnTop = false
-                            pendingTabHiddenEvent = false
-                        }
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED -> {
-                            browserEventsJob?.cancel()
-                        }
-                    }
+                if (event is OSIABEvents.OSIABCustomTabsEvent
+                    && event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                    browserEventsJob?.cancel()
                 }
             }
         }
 
         override fun onNavigationEvent(navigationEvent: Int, extras: Bundle?) {
             super.onNavigationEvent(navigationEvent, extras)
-            val browserEvent = when (navigationEvent) {
-                NAVIGATION_FINISHED -> OSIABEvents.BrowserPageLoaded(browserId)
-                TAB_HIDDEN -> {
-                    if(isCustomTabsActivityOnTop) {
-                        OSIABEvents.BrowserFinished(browserId)
-                    }
-                    else {
-                        // App not open but custom tabs is hidden (home button, recent apps, etc.)
-                        pendingTabHiddenEvent = true
-                        return
-                    }
+            Log.d(TAG, "onNavigationEvent: code=$navigationEvent (${navEventName(navigationEvent)})")
+            if (navigationEvent == NAVIGATION_FINISHED) {
+                lifecycleScope.launch {
+                    OSIABEvents.postEvent(OSIABEvents.BrowserPageLoaded(browserId))
                 }
-                else -> return
             }
-            lifecycleScope.launch {
-                OSIABEvents.postEvent(browserEvent)
-            }
+        }
+
+        private fun navEventName(code: Int): String = when (code) {
+            NAVIGATION_STARTED -> "NAVIGATION_STARTED"
+            NAVIGATION_FINISHED -> "NAVIGATION_FINISHED"
+            NAVIGATION_FAILED -> "NAVIGATION_FAILED"
+            NAVIGATION_ABORTED -> "NAVIGATION_ABORTED"
+            TAB_SHOWN -> "TAB_SHOWN"
+            TAB_HIDDEN -> "TAB_HIDDEN"
+            else -> "UNKNOWN"
         }
     }
 
