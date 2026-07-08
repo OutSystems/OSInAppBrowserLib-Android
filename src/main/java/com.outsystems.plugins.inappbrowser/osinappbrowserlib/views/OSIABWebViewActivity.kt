@@ -732,6 +732,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                     }
                     val takePictureIntent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
                         putExtra(MediaStore.EXTRA_OUTPUT, currentPhotoUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                     }
                     intentList.add(takePictureIntent)
                 }
@@ -746,6 +747,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                     }
                     val takeVideoIntent = Intent(MediaStore.ACTION_VIDEO_CAPTURE).apply {
                         putExtra(MediaStore.EXTRA_OUTPUT, currentVideoUri)
+                        addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                     }
                     intentList.add(takeVideoIntent)
                 }

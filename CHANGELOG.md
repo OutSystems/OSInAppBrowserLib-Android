@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.1]
+
+### Fixes
+
+- Explicitly grant `FLAG_GRANT_READ_URI_PERMISSION` and `FLAG_GRANT_WRITE_URI_PERMISSION` when launching the photo/video capture intents from the WebView file chooser, required for Android 18's implicit URI grant restriction ([RMET-5241](https://outsystemsrd.atlassian.net/browse/RMET-5241)).
+
 ## [2.0.0]
 
 ### Fixes
