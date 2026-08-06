@@ -979,7 +979,6 @@ open class OSIABWebViewActivity : AppCompatActivity() {
     }
 
     /** Responsible for sending events to the main process.
-     * Must not go through lifecycleScope, which is already cancelled during onDestroy.
      * @param event object to broadcast to the event bus
      */
     private fun sendWebViewEvent(event: OSIABEvents) {
