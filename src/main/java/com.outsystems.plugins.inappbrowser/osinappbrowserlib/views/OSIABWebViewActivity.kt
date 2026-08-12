@@ -4,14 +4,17 @@ import android.Manifest
 import android.app.Application
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Gravity
@@ -42,6 +45,7 @@ import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABKeepAliveService
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABPdfHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
@@ -72,6 +76,8 @@ open class OSIABWebViewActivity : AppCompatActivity() {
     private lateinit var browserId: String
 
     private var closeReceiver: BroadcastReceiver? = null
+
+    private var keepAliveConnection: ServiceConnection? = null
 
     // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the WebView
     private var isFirstLoad = true
@@ -139,6 +145,11 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         const val REQUEST_LOCATION_PERMISSION = 623
         const val REQUEST_CAMERA_PERMISSION = 624
         const val LOG_TAG = "OSIABWebViewActivity"
+        const val ISOLATED_PROCESS_SUFFIX = ":OSInAppBrowser"
+
+        private fun isIsolatedProcess(): Boolean =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                Application.getProcessName().endsWith(ISOLATED_PROCESS_SUFFIX)
         val errorsToHandle = listOf(
             WebViewClient.ERROR_HOST_LOOKUP,
             WebViewClient.ERROR_UNSUPPORTED_SCHEME,
@@ -153,15 +164,12 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         }
 
         init {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                try {
-                    val processName = Application.getProcessName()
-                    if (processName.endsWith(":OSInAppBrowser")) {
-                        WebView.setDataDirectorySuffix("OSInAppBrowser")
-                    }
-                } catch (e: Exception) {
-                    Log.d(LOG_TAG, "Suffix already set or error: ${e.message}")
+            try {
+                if (isIsolatedProcess()) {
+                    WebView.setDataDirectorySuffix("OSInAppBrowser")
                 }
+            } catch (e: Exception) {
+                Log.d(LOG_TAG, "Suffix already set or error: ${e.message}")
             }
         }
     }
@@ -179,6 +187,17 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
+
+        // keep the main process out of the freezable state while the browser is in front,
+        // otherwise events queue and the app's close flow stalls until it unfreezes
+        if (isIsolatedProcess()) {
+            val connection = object : ServiceConnection {
+                override fun onServiceConnected(name: ComponentName?, service: IBinder?) {}
+                override fun onServiceDisconnected(name: ComponentName?) {}
+            }
+            bindService(Intent(this, OSIABKeepAliveService::class.java), connection, Context.BIND_AUTO_CREATE)
+            keepAliveConnection = connection
+        }
 
         // Register receiver for close commands from main process
         closeReceiver = object : BroadcastReceiver() {
@@ -279,6 +298,14 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                 // Receiver may not be registered, ignore
             }
             closeReceiver = null
+        }
+        keepAliveConnection?.let {
+            try {
+                unbindService(it)
+            } catch (e: Exception) {
+                // Service may not be bound, ignore
+            }
+            keepAliveConnection = null
         }
         webView.destroy()
         super.onDestroy()
