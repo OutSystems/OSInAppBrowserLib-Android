@@ -51,23 +51,28 @@ class OSIABCustomTabsRouterAdapter(
         var closeEventJob: Job? = null
 
         closeEventJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
-            if(event is OSIABEvents.OSIABCustomTabsEvent) {
-                when(event.action) {
-                    OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY -> {
-                        completionHandler(false)
-                    }
-                    OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED -> {
-                        completionHandler(true)
-                    }
-                    else -> {
-                        return@listenToEvents
-                    }
-                }
+            if(event is OSIABEvents.OSIABCustomTabsEvent
+                && event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                completionHandler(true)
                 closeEventJob?.cancel()
             }
         }
 
-        startCustomTabsControllerActivity(true)
+        startCustomTabsControllerActivity(doClose = true)
+    }
+
+    private fun resolveStartAnimationRes(animation: OSIABAnimation): Pair<Int, Int> = when (animation) {
+        OSIABAnimation.FADE_IN -> android.R.anim.fade_in to android.R.anim.fade_out
+        OSIABAnimation.FADE_OUT -> android.R.anim.fade_out to android.R.anim.fade_in
+        OSIABAnimation.SLIDE_IN_LEFT -> android.R.anim.slide_in_left to android.R.anim.slide_out_right
+        OSIABAnimation.SLIDE_OUT_RIGHT -> android.R.anim.slide_out_right to android.R.anim.slide_in_left
+    }
+
+    private fun resolveExitAnimationRes(animation: OSIABAnimation): Pair<Int, Int> = when (animation) {
+        OSIABAnimation.FADE_IN -> android.R.anim.fade_out to android.R.anim.fade_in
+        OSIABAnimation.FADE_OUT -> android.R.anim.fade_in to android.R.anim.fade_out
+        OSIABAnimation.SLIDE_IN_LEFT -> android.R.anim.slide_out_right to android.R.anim.slide_in_left
+        OSIABAnimation.SLIDE_OUT_RIGHT -> android.R.anim.slide_in_left to android.R.anim.slide_out_right
     }
 
     private fun buildCustomTabsIntent(customTabsSession: CustomTabsSession?): CustomTabsIntent {
@@ -76,57 +81,11 @@ class OSIABCustomTabsRouterAdapter(
         builder.setShowTitle(options.showTitle)
         builder.setUrlBarHidingEnabled(options.hideToolbarOnScroll)
 
-        when (options.startAnimation) {
-            OSIABAnimation.FADE_IN -> builder.setStartAnimations(
-                context,
-                android.R.anim.fade_in,
-                android.R.anim.fade_out
-            )
+        val (startEnter, startExit) = resolveStartAnimationRes(options.startAnimation)
+        builder.setStartAnimations(context, startEnter, startExit)
 
-            OSIABAnimation.FADE_OUT -> builder.setStartAnimations(
-                context,
-                android.R.anim.fade_out,
-                android.R.anim.fade_in
-            )
-
-            OSIABAnimation.SLIDE_IN_LEFT -> builder.setStartAnimations(
-                context,
-                android.R.anim.slide_in_left,
-                android.R.anim.slide_out_right
-            )
-
-            OSIABAnimation.SLIDE_OUT_RIGHT -> builder.setStartAnimations(
-                context,
-                android.R.anim.slide_out_right,
-                android.R.anim.slide_in_left
-            )
-        }
-
-        when (options.exitAnimation) {
-            OSIABAnimation.FADE_IN -> builder.setExitAnimations(
-                context,
-                android.R.anim.fade_out,
-                android.R.anim.fade_in
-            )
-
-            OSIABAnimation.FADE_OUT -> builder.setExitAnimations(
-                context,
-                android.R.anim.fade_in,
-                android.R.anim.fade_out
-            )
-
-            OSIABAnimation.SLIDE_IN_LEFT -> builder.setExitAnimations(
-                context,
-                android.R.anim.slide_out_right,
-                android.R.anim.slide_in_left
-            )
-
-            OSIABAnimation.SLIDE_OUT_RIGHT -> builder.setExitAnimations(
-                context,
-                android.R.anim.slide_in_left,
-                android.R.anim.slide_out_right
-            )
-        }
+        val (exitEnter, exitExit) = resolveExitAnimationRes(options.exitAnimation)
+        builder.setExitAnimations(context, exitEnter, exitExit)
 
         if (options.viewStyle == OSIABViewStyle.BOTTOM_SHEET) {
             options.bottomSheetOptions?.let { bottomSheetOptions ->
@@ -161,9 +120,7 @@ class OSIABCustomTabsRouterAdapter(
                             completionHandler(false)
                             return@generateNewCustomTabsSession
                         }
-
                         openCustomTabsIntent(it, uri, completionHandler)
-                        startCustomTabsControllerActivity()
                     }
                 )
             } catch (e: Exception) {
@@ -174,21 +131,13 @@ class OSIABCustomTabsRouterAdapter(
 
     private fun openCustomTabsIntent(session: CustomTabsSession, uri: Uri, completionHandler: (Boolean) -> Unit) {
         val customTabsIntent = buildCustomTabsIntent(session)
+        customTabsIntent.intent.data = uri
+
         var eventsJob: Job? = null
         eventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
             when (event) {
                 is OSIABEvents.OSIABCustomTabsEvent -> {
-                    if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_READY) {
-                        try {
-                            event.context?.let { ctx ->
-                                customTabsIntent.launchUrl(ctx, uri)
-                                completionHandler(true)
-                            } ?: completionHandler(false)
-                        } catch (e: Exception) {
-                            completionHandler(false)
-                        }
-                    }
-                    else if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                    if(event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
                         isFinished = true
                         onBrowserFinished()
                         eventsJob?.cancel()
@@ -200,19 +149,30 @@ class OSIABCustomTabsRouterAdapter(
                         isFirstLoad = false
                     }
                 }
-                is OSIABEvents.BrowserFinished -> {
-                    // Ensure that custom tabs controller activity is fully destroyed
-                    startCustomTabsControllerActivity(true)
-                    isFinished = true
-                    onBrowserFinished()
-                    eventsJob?.cancel()
-                }
                 else -> {}
             }
         }
+
+        try {
+            val (startEnter, startExit) = resolveStartAnimationRes(options.startAnimation)
+            startCustomTabsControllerActivity(
+                customTabsIntent = customTabsIntent.intent,
+                startEnterAnimRes = startEnter,
+                startExitAnimRes = startExit
+            )
+            completionHandler(true)
+        } catch (e: Exception) {
+            eventsJob?.cancel()
+            completionHandler(false)
+        }
     }
 
-    private fun startCustomTabsControllerActivity(doClose: Boolean = false) {
+    private fun startCustomTabsControllerActivity(
+        doClose: Boolean = false,
+        customTabsIntent: Intent? = null,
+        startEnterAnimRes: Int = 0,
+        startExitAnimRes: Int = 0
+    ) {
         val intent = Intent(context, OSIABCustomTabsControllerActivity::class.java).apply {
             addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP)
             putExtra(OSIABEvents.EXTRA_BROWSER_ID, browserId)
@@ -221,6 +181,12 @@ class OSIABCustomTabsRouterAdapter(
         if(doClose) {
             intent.addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION)
             intent.putExtra(OSIABCustomTabsControllerActivity.ACTION_CLOSE_CUSTOM_TABS, true)
+        }
+
+        if (customTabsIntent != null) {
+            intent.putExtra(OSIABCustomTabsControllerActivity.EXTRA_CUSTOM_TABS_INTENT, customTabsIntent)
+            intent.putExtra(OSIABCustomTabsControllerActivity.EXTRA_START_ENTER_ANIM_RES, startEnterAnimRes)
+            intent.putExtra(OSIABCustomTabsControllerActivity.EXTRA_START_EXIT_ANIM_RES, startExitAnimRes)
         }
 
         context.startActivity(intent)
