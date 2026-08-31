@@ -43,6 +43,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABFileChooserHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABPdfHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
@@ -619,7 +620,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
     private inner class OSIABWebChromeClient : WebChromeClient() {
 
         // for handling uploads (photo, video, gallery, files)
-        private var acceptTypes: String = ""
+        private var acceptTypes: List<String> = emptyList()
         private var captureEnabled: Boolean = false
 
         // handle standard permissions (e.g. audio, camera)
@@ -646,7 +647,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             fileChooserParams: FileChooserParams
         ): Boolean {
             this@OSIABWebViewActivity.filePathCallback = filePathCallback
-            acceptTypes = fileChooserParams.acceptTypes.joinToString()
+            acceptTypes = fileChooserParams.acceptTypes.toList()
             captureEnabled = fileChooserParams.isCaptureEnabled
 
             // if camera permission is declared in manifest but is not granted, request it
@@ -681,7 +682,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         fun cancelFileChooser() {
             filePathCallback?.onReceiveValue(null)
             filePathCallback = null
-            acceptTypes = ""
+            acceptTypes = emptyList()
             captureEnabled = false
         }
 
@@ -692,17 +693,17 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                 e.printStackTrace()
                 cancelFileChooser()
             }
-            acceptTypes = ""
+            acceptTypes = emptyList()
             captureEnabled = false
         }
 
-        private fun launchFileChooser(acceptTypes: String = "", isCaptureEnabled: Boolean = false) {
+        private fun launchFileChooser(acceptTypes: List<String> = emptyList(), isCaptureEnabled: Boolean = false) {
             val intentList = buildPhotoVideoIntents(acceptTypes)
             val permissionNotDeclaredOrGranted = hasCameraPermissionDeclared().not() || isCameraPermissionGranted()
 
             if (isCaptureEnabled && permissionNotDeclaredOrGranted) {
                 // if capture is enabled, we only show the camera and video options
-                launchCameraChooser(intentList)
+                launchCameraChooser(intentList, acceptTypes, permissionNotDeclaredOrGranted)
             } else if (!isCaptureEnabled) {
                 // if capture is not enabled, we show the full chooser
                 launchFullChooser(intentList, acceptTypes, permissionNotDeclaredOrGranted)
@@ -714,12 +715,15 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             }
         }
 
-        private fun buildPhotoVideoIntents(acceptTypes: String): MutableList<Intent> {
+        private fun buildPhotoVideoIntents(acceptTypes: List<String>): MutableList<Intent> {
             val intentList = mutableListOf<Intent>()
             val permissionNotDeclaredOrGranted = hasCameraPermissionDeclared().not() || isCameraPermissionGranted()
 
             if (permissionNotDeclaredOrGranted) {
-                if (acceptTypes.contains("image") || acceptTypes.isEmpty()) {
+                val resolvedMimeTypes = OSIABFileChooserHelper.resolveMimeTypes(acceptTypes)
+                val noAcceptSpecified = acceptTypes.none { it.isNotBlank() }
+
+                if (noAcceptSpecified || resolvedMimeTypes.any { it.startsWith("image/") }) {
                     currentPhotoFile = createTempFile(this@OSIABWebViewActivity, "IMG_", ".jpg").also { file ->
                         currentPhotoUri = FileProvider.getUriForFile(
                             this@OSIABWebViewActivity,
@@ -733,7 +737,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                     }
                     intentList.add(takePictureIntent)
                 }
-                if (acceptTypes.contains("video") || acceptTypes.isEmpty()) {
+                if (noAcceptSpecified || resolvedMimeTypes.any { it.startsWith("video/") }) {
                     currentVideoFile = createTempFile(this@OSIABWebViewActivity, "VID_", ".mp4").also { file ->
                         currentVideoFile = file
                         currentVideoUri = FileProvider.getUriForFile(
@@ -752,7 +756,18 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             return intentList
         }
 
-        private fun launchCameraChooser(intentList: List<Intent>) {
+        private fun launchCameraChooser(
+            intentList: List<Intent>,
+            acceptTypes: List<String>,
+            permissionNotDeclaredOrGranted: Boolean
+        ) {
+            if (intentList.isEmpty()) {
+                // nothing capturable for this accept list (e.g. a documents-only accept
+                // combined with a capture hint) - fall back to the full chooser instead
+                // of indexing into an empty list
+                launchFullChooser(intentList, acceptTypes, permissionNotDeclaredOrGranted)
+                return
+            }
             val chooser = if (intentList.size == 1) {
                 intentList[0]
             } else {
@@ -764,14 +779,13 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             fileChooserLauncher.launch(chooser)
         }
 
-        private fun launchFullChooser(intentList: List<Intent>, acceptTypes: String, permissionNotDeclaredOrGranted: Boolean) {
+        private fun launchFullChooser(intentList: List<Intent>, acceptTypes: List<String>, permissionNotDeclaredOrGranted: Boolean) {
+            val resolvedMimeTypes = OSIABFileChooserHelper.resolveMimeTypes(acceptTypes)
+            val mimeConfig = OSIABFileChooserHelper.resolveChooserMimeConfig(resolvedMimeTypes)
             val contentIntent = Intent(Intent.ACTION_GET_CONTENT).apply {
                 addCategory(Intent.CATEGORY_OPENABLE)
-                type = when {
-                    acceptTypes.contains("video") -> "video/*"
-                    acceptTypes.contains("image") -> "image/*"
-                    else -> "*/*"
-                }
+                type = mimeConfig.type
+                mimeConfig.extraMimeTypes?.let { putExtra(Intent.EXTRA_MIME_TYPES, it.toTypedArray()) }
             }
             val chooser = Intent(Intent.ACTION_CHOOSER).apply {
                 putExtra(Intent.EXTRA_INTENT, contentIntent)
