@@ -23,7 +23,7 @@ object OSIABFileChooserHelper {
     /**
      * MIME type used on an intent to indicate no filtering, i.e. any content is acceptable.
      */
-    const val WILDCARD_MIME_TYPE = "OSInAppBrowserLib-debug.aar"
+    const val WILDCARD_MIME_TYPE = "*/*"
 
     /**
      * The `type` / [android.content.Intent.EXTRA_MIME_TYPES] pair to apply to an
