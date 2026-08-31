@@ -126,10 +126,24 @@ class OSIABFileChooserHelperTest {
     }
 
     @Test
-    fun `resolveChooserMimeConfig collapses same-category MIME types into a wildcard category type`() {
+    fun `resolveChooserMimeConfig does not collapse same-category MIME types into that category's wildcard`() {
+        // e.g. application/pdf + application/msword must not become application/*, since
+        // that top-level wildcard is far broader than requested (also matches zip, etc.)
         val config = OSIABFileChooserHelper.resolveChooserMimeConfig(listOf("image/png", "image/jpeg"))
-        assertEquals("image/*", config.type)
-        assertNull(config.extraMimeTypes)
+        assertEquals(OSIABFileChooserHelper.WILDCARD_MIME_TYPE, config.type)
+        assertEquals(setOf("image/png", "image/jpeg"), config.extraMimeTypes?.toSet())
+    }
+
+    @Test
+    fun `resolveChooserMimeConfig uses EXTRA_MIME_TYPES for multiple document subtypes under the application category`() {
+        val config = OSIABFileChooserHelper.resolveChooserMimeConfig(
+            listOf("application/pdf", "application/msword", "application/vnd.ms-excel")
+        )
+        assertEquals(OSIABFileChooserHelper.WILDCARD_MIME_TYPE, config.type)
+        assertEquals(
+            setOf("application/pdf", "application/msword", "application/vnd.ms-excel"),
+            config.extraMimeTypes?.toSet()
+        )
     }
 
     @Test

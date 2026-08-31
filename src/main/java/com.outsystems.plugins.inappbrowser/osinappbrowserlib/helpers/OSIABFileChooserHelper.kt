@@ -23,7 +23,7 @@ object OSIABFileChooserHelper {
     /**
      * MIME type used on an intent to indicate no filtering, i.e. any content is acceptable.
      */
-    const val WILDCARD_MIME_TYPE = "*/*"
+    const val WILDCARD_MIME_TYPE = "OSInAppBrowserLib-debug.aar"
 
     /**
      * The `type` / [android.content.Intent.EXTRA_MIME_TYPES] pair to apply to an
@@ -77,12 +77,15 @@ object OSIABFileChooserHelper {
      * [resolveMimeTypes]).
      *
      * - No resolvable MIME types: falls back to [WILDCARD_MIME_TYPE], no extra MIME types.
-     * - All resolved MIME types share a single top-level category (e.g. only an image
-     *   wildcard type, or `image/png` + `image/jpeg`): uses that single type (the shared category's
-     *   wildcard, or the lone MIME type itself), no extra MIME types needed.
-     * - MIME types span more than one top-level category (e.g. images + PDF + Word):
-     *   uses [WILDCARD_MIME_TYPE] plus `EXTRA_MIME_TYPES`, so the picker offers exactly
-     *   that disjoint set instead of collapsing to a single guessed category.
+     * - Exactly one resolved MIME type: uses that type directly (whether it's already a
+     *   wildcard like an image wildcard type, or a specific type like `application/pdf`),
+     *   no extra MIME types needed.
+     * - More than one resolved MIME type: uses [WILDCARD_MIME_TYPE] plus `EXTRA_MIME_TYPES`
+     *   with the full list, regardless of whether they share a top-level category. Multiple
+     *   distinct subtypes under the same category (e.g. `application/pdf` + `application/msword`)
+     *   are intentionally not collapsed into that category's wildcard, since a top-level
+     *   category wildcard can be far broader than what was actually requested (the
+     *   `application` category wildcard alone also matches zip, octet-stream, JSON, etc).
      *
      * @param resolvedMimeTypes MIME types as returned by [resolveMimeTypes]. Deduplicated
      * internally, so callers do not need to pre-deduplicate.
@@ -90,13 +93,10 @@ object OSIABFileChooserHelper {
      */
     fun resolveChooserMimeConfig(resolvedMimeTypes: List<String>): ChooserMimeConfig {
         val distinct = resolvedMimeTypes.distinct()
-        if (distinct.isEmpty()) return ChooserMimeConfig(WILDCARD_MIME_TYPE, null)
-        val categories = distinct.map { it.substringBefore("/") }.distinct()
-        return if (categories.size == 1) {
-            val type = if (distinct.size == 1) distinct[0] else "${categories[0]}/*"
-            ChooserMimeConfig(type, null)
-        } else {
-            ChooserMimeConfig(WILDCARD_MIME_TYPE, distinct)
+        return when (distinct.size) {
+            0 -> ChooserMimeConfig(WILDCARD_MIME_TYPE, null)
+            1 -> ChooserMimeConfig(distinct[0], null)
+            else -> ChooserMimeConfig(WILDCARD_MIME_TYPE, distinct)
         }
     }
 
