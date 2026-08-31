@@ -721,7 +721,8 @@ open class OSIABWebViewActivity : AppCompatActivity() {
 
             if (permissionNotDeclaredOrGranted) {
                 val resolvedMimeTypes = OSIABFileChooserHelper.resolveMimeTypes(acceptTypes)
-                val noAcceptSpecified = acceptTypes.none { it.isNotBlank() }
+                val noAcceptSpecified = acceptTypes.none { it.isNotBlank() } ||
+                    resolvedMimeTypes.contains(OSIABFileChooserHelper.WILDCARD_MIME_TYPE)
 
                 if (noAcceptSpecified || resolvedMimeTypes.any { it.startsWith("image/") }) {
                     currentPhotoFile = createTempFile(this@OSIABWebViewActivity, "IMG_", ".jpg").also { file ->
