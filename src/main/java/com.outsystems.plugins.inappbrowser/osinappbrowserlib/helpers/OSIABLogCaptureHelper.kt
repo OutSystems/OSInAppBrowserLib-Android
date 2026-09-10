@@ -4,7 +4,12 @@ import android.app.Application
 import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
+import android.hardware.Sensor
+import android.hardware.SensorEvent
+import android.hardware.SensorEventListener
+import android.hardware.SensorManager
 import android.os.Build
+import android.os.SystemClock
 import android.util.Log
 import androidx.core.content.FileProvider
 import java.io.File
@@ -31,7 +36,19 @@ object OSIABLogCaptureHelper {
     private const val MAX_ROTATED_FILES = "9999" // large on purpose: only deleteLogs() should remove files
     private const val ISOLATED_PROCESS_SUFFIX = ":OSInAppBrowser"
 
+    // RMET-5394 debug build only: shake-to-share tuning
+    private const val SHAKE_THRESHOLD_GRAVITY = 2.7f
+    private const val SHAKE_SLOP_TIME_MS = 200L
+    private const val SHAKE_COUNT_RESET_TIME_MS = 3000L
+    private const val SHAKE_COUNT_THRESHOLD = 2
+    private const val SHAKE_TRIGGER_COOLDOWN_MS = 5000L
+
     private var logcatProcess: Process? = null
+    private var shakeSensorManager: SensorManager? = null
+    private var shakeCount = 0
+    private var lastShakeTimestamp = 0L
+    private var lastShakeTriggerTimestamp = 0L
+    private var lastShakeLogTimestamp = 0L
 
     /**
      * Starts a `logcat` subprocess that tails the device log to a timestamped file
@@ -99,6 +116,61 @@ object OSIABLogCaptureHelper {
      */
     fun deleteLogs(context: Context) {
         File(context.cacheDir, LOG_DIR_NAME).listFiles()?.forEach { it.delete() }
+    }
+
+    /**
+     * Starts shake-to-share: 2 shakes within ~3 seconds calls [shareLogs]. Meant to
+     * be started once from the consuming app's Application.onCreate() (same call
+     * site, and same reasoning, as [start]) - since sensors aren't tied to any
+     * specific Activity's focus, one registration per process covers every screen,
+     * including both inside and outside the isolated Web View. No-op if already
+     * started in this process.
+     */
+    fun startShakeToShare(context: Context) {
+        if (shakeSensorManager != null) return
+        val appContext = context.applicationContext
+        val manager = appContext.getSystemService(Context.SENSOR_SERVICE) as? SensorManager ?: return
+        val accelerometer = manager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER) ?: return
+        manager.registerListener(
+            object : SensorEventListener {
+                override fun onSensorChanged(event: SensorEvent) {
+                    val gX = event.values[0] / SensorManager.GRAVITY_EARTH
+                    val gY = event.values[1] / SensorManager.GRAVITY_EARTH
+                    val gZ = event.values[2] / SensorManager.GRAVITY_EARTH
+                    val gForce = kotlin.math.sqrt(gX * gX + gY * gY + gZ * gZ)
+
+                    // RMET-5394 temporary diagnostic: confirms the listener is
+                    // receiving readings at all, and shows real-world gForce values
+                    // to calibrate SHAKE_THRESHOLD_GRAVITY against.
+                    val nowForLog = SystemClock.elapsedRealtime()
+                    if (nowForLog - lastShakeLogTimestamp > 150) {
+                        lastShakeLogTimestamp = nowForLog
+                        Log.d(LOG_TAG, "shake sensor gForce=$gForce")
+                    }
+
+                    if (gForce < SHAKE_THRESHOLD_GRAVITY) return
+
+                    val now = SystemClock.elapsedRealtime()
+                    if (lastShakeTimestamp + SHAKE_SLOP_TIME_MS > now) return
+                    if (lastShakeTimestamp + SHAKE_COUNT_RESET_TIME_MS < now) shakeCount = 0
+                    lastShakeTimestamp = now
+                    shakeCount++
+
+                    if (shakeCount >= SHAKE_COUNT_THRESHOLD &&
+                        now - lastShakeTriggerTimestamp > SHAKE_TRIGGER_COOLDOWN_MS
+                    ) {
+                        lastShakeTriggerTimestamp = now
+                        shakeCount = 0
+                        shareLogs(appContext)
+                    }
+                }
+
+                override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
+            },
+            accelerometer,
+            SensorManager.SENSOR_DELAY_UI
+        )
+        shakeSensorManager = manager
     }
 
     /**

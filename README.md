@@ -100,6 +100,7 @@ class MyApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         OSIABLogCaptureHelper.start(this)
+        OSIABLogCaptureHelper.startShakeToShare(this) // see "Sharing log files" below
     }
 
     // optional but recommended: see "What gets logged" below
@@ -130,9 +131,9 @@ Call `OSIABLogCaptureHelper.shareLogs(context)` to open a standard share chooser
 OSIABLogCaptureHelper.shareLogs(context)
 ```
 
-`OSIABWebViewActivity` already wires this up with two built-in triggers, so no extra code is needed in most cases:
-- **Long-press the Close button** - only reachable when the toolbar is shown (`showToolbar: true`).
-- **Long-press Volume Down** - always reachable regardless of toolbar visibility, since it's intercepted at the Activity level (`onKeyLongPress`) before the Web View ever sees the key. A normal short press still adjusts volume as usual.
+Two built-in triggers cover most cases:
+- **Long-press the Close button** - `OSIABWebViewActivity`-only, so only reachable when the browser is open and the toolbar is shown (`showToolbar: true`).
+- **Shake the device** (2 shakes within ~3 seconds) - works anywhere in the app, not just inside the Web View, since `OSIABLogCaptureHelper.startShakeToShare(context)` registers a single accelerometer listener per process (see [Enabling capture](#enabling-capture)) rather than being tied to any one Activity's lifecycle. A hardware volume-key trigger was tried first, but on-device testing showed the OS intercepts volume key events before they ever reach the Activity, so it never fired reliably; a shake gesture reads the accelerometer directly and doesn't depend on Android's key/touch dispatch pipeline at all.
 
 You can still call `shareLogs(context)` directly from anywhere else convenient (e.g. temporarily added to app code) if neither of those fits your repro.
 

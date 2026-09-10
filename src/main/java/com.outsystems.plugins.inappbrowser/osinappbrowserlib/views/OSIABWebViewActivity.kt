@@ -15,7 +15,6 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Gravity
-import android.view.KeyEvent
 import android.view.View
 import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
@@ -301,17 +300,6 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         if (options.pauseMedia) {
             webView.onResume()
         }
-    }
-
-    // RMET-5394 debug build only: long-press Volume Down to share captured logs.
-    // Reaches the Activity before the WebView sees the key, so it works regardless
-    // of toolbar visibility. A normal short press still adjusts volume as usual.
-    override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean {
-        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
-            OSIABLogCaptureHelper.shareLogs(this)
-            return true
-        }
-        return super.onKeyLongPress(keyCode, event)
     }
 
     // RMET-5394 debug build only: an early, OS-native signal of this (isolated)
