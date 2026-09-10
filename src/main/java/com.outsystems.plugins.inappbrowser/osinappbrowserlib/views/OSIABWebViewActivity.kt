@@ -17,6 +17,7 @@ import android.util.Log
 import android.view.Gravity
 import android.view.KeyEvent
 import android.view.View
+import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
@@ -181,6 +182,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
+        Log.d(LOG_TAG, "onCreate browserId=$browserId")
 
         // Register receiver for close commands from main process
         closeReceiver = object : BroadcastReceiver() {
@@ -277,6 +279,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        Log.d(LOG_TAG, "onDestroy browserId=$browserId isFinishing=$isFinishing")
         // sent here instead of onStop, which is skipped when finish() happens on an already stopped activity
         if (isFinishing) {
             sendWebViewEvent(OSIABEvents.BrowserFinished(browserId))
@@ -309,6 +312,13 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             return true
         }
         return super.onKeyLongPress(keyCode, event)
+    }
+
+    // RMET-5394 debug build only: an early, OS-native signal of this (isolated)
+    // process trending toward the cached/frozen state, ahead of an actual freeze.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        OSIABLogCaptureHelper.logTrimMemory(level)
     }
 
     private fun handleLoadUrl(url: String, additionalHttpHeaders: Map<String, String>? = null) {
@@ -647,6 +657,19 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             request?.let {
                 handlePermissionRequest(it)
             }
+        }
+
+        // RMET-5394 debug build only: bridge page console.log/warn/error into the
+        // native log capture, to correlate what the page believed happened (e.g.
+        // "payment complete, notifying app") against when the app actually reacted.
+        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+            consoleMessage?.let {
+                Log.d(
+                    LOG_TAG,
+                    "console[${it.messageLevel()}] ${it.message()} (${it.sourceId()}:${it.lineNumber()})"
+                )
+            }
+            return false
         }
 
         // specifically handle geolocation permission

@@ -21,6 +21,10 @@ Each is detailed in the following sections.
     - [Open a URL in a Web View](#open-a-url-in-a-web-view)
     - [Close](#close)
 - [Debug log capture (RMET-5394)](#debug-log-capture-rmet-5394)
+    - [Enabling capture](#enabling-capture)
+    - [Sharing log files](#sharing-log-files)
+    - [Removing log files](#removing-log-files)
+    - [What gets logged](#what-gets-logged)
 
 ## Motivation
 
@@ -97,6 +101,12 @@ class MyApplication : Application() {
         super.onCreate()
         OSIABLogCaptureHelper.start(this)
     }
+
+    // optional but recommended: see "What gets logged" below
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        OSIABLogCaptureHelper.logTrimMemory(level)
+    }
 }
 ```
 
@@ -120,7 +130,11 @@ Call `OSIABLogCaptureHelper.shareLogs(context)` to open a standard share chooser
 OSIABLogCaptureHelper.shareLogs(context)
 ```
 
-This is meant to be wired up temporarily wherever is convenient while reproducing an issue (e.g. a button, or a call added directly in code and removed afterwards) rather than shipped as a permanent UI entry point.
+`OSIABWebViewActivity` already wires this up with two built-in triggers, so no extra code is needed in most cases:
+- **Long-press the Close button** - only reachable when the toolbar is shown (`showToolbar: true`).
+- **Long-press Volume Down** - always reachable regardless of toolbar visibility, since it's intercepted at the Activity level (`onKeyLongPress`) before the Web View ever sees the key. A normal short press still adjusts volume as usual.
+
+You can still call `shareLogs(context)` directly from anywhere else convenient (e.g. temporarily added to app code) if neither of those fits your repro.
 
 ### Removing log files
 
@@ -129,3 +143,12 @@ Call `OSIABLogCaptureHelper.deleteLogs(context)` to delete every captured log fi
 ```kotlin
 OSIABLogCaptureHelper.deleteLogs(context)
 ```
+
+### What gets logged
+
+Beyond the raw `logcat` tail, a few signals are deliberately emitted to make the captured logs useful for diagnosing RMET-5394 specifically:
+
+- **`OSIABEvents` send/receive timestamps** - `broadcastEvent()` logs right before sending (from the isolated process, which never freezes), and the registered receiver logs immediately on `onReceive()` (in whichever process registered it, typically the main process). The gap between these two log lines is the most direct evidence of the main process being frozen - e.g. "sent at T, received at T+40s" - rather than something inferred indirectly.
+- **Activity lifecycle breadcrumbs** - `OSIABWebViewActivity.onCreate`/`onDestroy` log the `browserId` and (for `onDestroy`) `isFinishing`, and `OSIABEvents.registerReceiver`/`unregisterReceiver` log their ref-counted register/unregister transitions. Mainly for timeline correlation across the two processes' separate log files.
+- **`onTrimMemory` levels** - `OSIABLogCaptureHelper.logTrimMemory(level)` logs Android's own `ComponentCallbacks2.onTrimMemory()` signal, an early OS-native indicator of a process trending toward the cached/frozen state, ahead of an actual freeze taking effect. `OSIABWebViewActivity` already logs this for the isolated process; call it from the consuming app's own `Application.onTrimMemory()` (see [Enabling capture](#enabling-capture)) to get the same signal for the main process.
+- **WebView JS console messages** - `OSIABWebChromeClient.onConsoleMessage` bridges page `console.log`/`warn`/`error` output into the same log capture, so what the page believed happened (e.g. "payment complete, notifying app") can be correlated against when the native app actually reacted.

@@ -1,6 +1,7 @@
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers
 
 import android.app.Application
+import android.content.ComponentCallbacks2
 import android.content.Context
 import android.content.Intent
 import android.os.Build
@@ -98,6 +99,28 @@ object OSIABLogCaptureHelper {
      */
     fun deleteLogs(context: Context) {
         File(context.cacheDir, LOG_DIR_NAME).listFiles()?.forEach { it.delete() }
+    }
+
+    /**
+     * Logs a ComponentCallbacks2.onTrimMemory() level. Meant to be called from both
+     * the consuming app's Application.onTrimMemory() (main process) and this
+     * library's Activity.onTrimMemory() (isolated process) - it's an early, OS-native
+     * signal of a process trending toward the cached/frozen state, ahead of an actual
+     * freeze taking effect.
+     */
+    fun logTrimMemory(level: Int) {
+        Log.d(LOG_TAG, "onTrimMemory level=$level (${trimMemoryLevelName(level)})")
+    }
+
+    private fun trimMemoryLevelName(level: Int): String = when (level) {
+        ComponentCallbacks2.TRIM_MEMORY_COMPLETE -> "COMPLETE"
+        ComponentCallbacks2.TRIM_MEMORY_MODERATE -> "MODERATE"
+        ComponentCallbacks2.TRIM_MEMORY_BACKGROUND -> "BACKGROUND"
+        ComponentCallbacks2.TRIM_MEMORY_UI_HIDDEN -> "UI_HIDDEN"
+        ComponentCallbacks2.TRIM_MEMORY_RUNNING_CRITICAL -> "RUNNING_CRITICAL"
+        ComponentCallbacks2.TRIM_MEMORY_RUNNING_LOW -> "RUNNING_LOW"
+        ComponentCallbacks2.TRIM_MEMORY_RUNNING_MODERATE -> "RUNNING_MODERATE"
+        else -> "UNKNOWN($level)"
     }
 
     private fun processSuffix(): String =
