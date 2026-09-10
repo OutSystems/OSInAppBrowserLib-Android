@@ -20,6 +20,7 @@ Each is detailed in the following sections.
     - [Open a URL in a System Browser](#open-a-url-in-a-system-browser)
     - [Open a URL in a Web View](#open-a-url-in-a-web-view)
     - [Close](#close)
+- [Debug log capture (RMET-5394)](#debug-log-capture-rmet-5394)
 
 ## Motivation
 
@@ -79,3 +80,52 @@ fun close(completionHandler: (Boolean) -> Unit)
 
 Handles closing an opened browser. The method is composed of the following input parameters:
 - **completionHandler**: The callback with the result of closing the browser.
+
+## Debug log capture (RMET-5394)
+
+> This is a **debug-only diagnostic tool**, not part of the library's public API surface, and not intended for production builds. It exists to capture repro sessions for [RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394) (main process getting frozen while the isolated Web View is in the foreground) on devices/scenarios where staying attached via `adb` isn't practical - USB debugging suppresses the freeze under investigation, and Wi-Fi debugging has been unstable in practice.
+
+`OSIABLogCaptureHelper` (in `helpers/OSIABLogCaptureHelper.kt`) shells out to the device's `logcat` binary and tails the full device log - not just this library's own log lines, but everything logged under the app's UID (other plugins, host app code, etc.) - to a rotating set of files on disk, with no live debugger connection required.
+
+### Enabling capture
+
+Because the Web View runs in its own isolated process, capture needs to start as early as possible in **both** processes. Android calls `Application.onCreate()` independently in every process the app spawns (main process at launch, and again in the isolated process when it's created for the browser), so adding a single call there covers both:
+
+```kotlin
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        OSIABLogCaptureHelper.start(this)
+    }
+}
+```
+
+Register the custom `Application` class in the consuming app's manifest if it doesn't already declare one:
+
+```xml
+<application
+    android:name=".MyApplication"
+    ...>
+```
+
+Logs are written to `<cacheDir>/logs/oslog-<main|isolated>-<yyyyMMdd_HHmmss>.txt`, rotating every 10 MB per file. Files are **not** deleted automatically - only [`deleteLogs`](#removing-log-files) removes them - so remember to clear them between test sessions.
+
+Requires API 28+ (`Application.getProcessName()`); below that, capture still runs but can't distinguish the isolated process from the main one.
+
+### Sharing log files
+
+Call `OSIABLogCaptureHelper.shareLogs(context)` to open a standard share chooser (email, Drive, Slack, etc.) with every captured log file attached:
+
+```kotlin
+OSIABLogCaptureHelper.shareLogs(context)
+```
+
+This is meant to be wired up temporarily wherever is convenient while reproducing an issue (e.g. a button, or a call added directly in code and removed afterwards) rather than shipped as a permanent UI entry point.
+
+### Removing log files
+
+Call `OSIABLogCaptureHelper.deleteLogs(context)` to delete every captured log file:
+
+```kotlin
+OSIABLogCaptureHelper.deleteLogs(context)
+```

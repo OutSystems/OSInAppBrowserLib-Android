@@ -15,6 +15,7 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Gravity
+import android.view.KeyEvent
 import android.view.View
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
@@ -43,6 +44,7 @@ import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABLogCaptureHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABPdfHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
@@ -231,6 +233,13 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         closeButton.setOnClickListener {
             finish()
         }
+        // RMET-5394 debug build only: long-press Close to share captured logs.
+        // Lives here (not tied to openWebView) because this activity's process is
+        // the one guaranteed to still be responsive even if the main process is frozen.
+        closeButton.setOnLongClickListener {
+            OSIABLogCaptureHelper.shareLogs(this)
+            true
+        }
 
         if (options.showToolbar)
             updateToolbar(
@@ -289,6 +298,17 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         if (options.pauseMedia) {
             webView.onResume()
         }
+    }
+
+    // RMET-5394 debug build only: long-press Volume Down to share captured logs.
+    // Reaches the Activity before the WebView sees the key, so it works regardless
+    // of toolbar visibility. A normal short press still adjusts volume as usual.
+    override fun onKeyLongPress(keyCode: Int, event: KeyEvent?): Boolean {
+        if (keyCode == KeyEvent.KEYCODE_VOLUME_DOWN) {
+            OSIABLogCaptureHelper.shareLogs(this)
+            return true
+        }
+        return super.onKeyLongPress(keyCode, event)
     }
 
     private fun handleLoadUrl(url: String, additionalHttpHeaders: Map<String, String>? = null) {
