@@ -73,7 +73,7 @@ sealed class OSIABEvents : Serializable {
                             OSIABEvents::class.java
                         )
                         if (event != null) {
-                            Log.d(LOG_TAG, "received ${event::class.simpleName} browserId=${event.browserId}")
+                            Log.d(LOG_TAG, "received ${event::class.simpleName} browserId=${event.browserId}${urlLogSuffix(event)}")
                             _events.tryEmit(event)
                         } else {
                             Log.d(LOG_TAG, "received ACTION_IAB_EVENT with null/undecodable payload")
@@ -124,13 +124,20 @@ sealed class OSIABEvents : Serializable {
          * Only data-only events should be broadcast (BrowserPageLoaded, BrowserFinished, etc.).
          */
         fun broadcastEvent(context: Context, event: OSIABEvents) {
-            Log.d(LOG_TAG, "broadcastEvent: sending ${event::class.simpleName} browserId=${event.browserId}")
+            Log.d(LOG_TAG, "broadcastEvent: sending ${event::class.simpleName} browserId=${event.browserId}${urlLogSuffix(event)}")
             val intent = Intent(ACTION_IAB_EVENT).apply {
                 setPackage(context.packageName)
                 putExtra(EXTRA_EVENT_DATA, event)
             }
             context.sendBroadcast(intent)
         }
+
+        // RMET-5394 debug logging only: BrowserPageNavigationCompleted is the only
+        // event carrying a URL. Not logged by default (query params can carry
+        // session tokens), but needed here to tell whether a "successful" native
+        // navigation actually landed on the expected page.
+        private fun urlLogSuffix(event: OSIABEvents): String =
+            (event as? BrowserPageNavigationCompleted)?.url?.let { " url=$it" }.orEmpty()
     }
 
 }

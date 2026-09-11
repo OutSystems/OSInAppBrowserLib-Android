@@ -24,6 +24,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -576,6 +577,16 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             // let all errors first be handled by the WebView default error handling mechanism
             super.onReceivedError(view, request, error)
 
+            // RMET-5394 debug build only: log every resource-level network error (not
+            // just the main-frame ones handled below), since this is the native error
+            // code/description behind failures JS can only see as a generic rejected
+            // fetch/promise (e.g. "TypeError: Failed to fetch").
+            Log.d(
+                LOG_TAG,
+                "onReceivedError url=${request?.url} isForMainFrame=${request?.isForMainFrame} " +
+                    "errorCode=${error?.errorCode} description=${error?.description}"
+            )
+
             // We only want to show the error screen for some errors (e.g. no internet)
             // e.g. we don't want to show it for an error where an image fails to load.
             // Also, we only want to show the error screen for errors in loading the main page,
@@ -586,6 +597,37 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                     showErrorScreen()
                 }
             }
+        }
+
+        // RMET-5394 debug build only: HTTP-level errors (4xx/5xx responses) for any
+        // resource, distinct from onReceivedError (which covers network/transport
+        // failures like DNS or connection errors, not server-returned error statuses).
+        override fun onReceivedHttpError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            errorResponse: WebResourceResponse?
+        ) {
+            super.onReceivedHttpError(view, request, errorResponse)
+            Log.d(
+                LOG_TAG,
+                "onReceivedHttpError url=${request?.url} statusCode=${errorResponse?.statusCode} " +
+                    "reasonPhrase=${errorResponse?.reasonPhrase}"
+            )
+        }
+
+        // RMET-5394 debug build only: logs every request the WebView makes - page
+        // navigations, scripts, images, and crucially any fetch()/XHR calls the page's
+        // own JS makes - since those aren't otherwise visible to native code. Called
+        // on a background thread; only observes, never intercepts (always returns null
+        // to let the WebView handle the request normally).
+        override fun shouldInterceptRequest(
+            view: WebView?,
+            request: WebResourceRequest?
+        ): WebResourceResponse? {
+            request?.let {
+                Log.d(LOG_TAG, "request: ${it.method} ${it.url}")
+            }
+            return super.shouldInterceptRequest(view, request)
         }
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
