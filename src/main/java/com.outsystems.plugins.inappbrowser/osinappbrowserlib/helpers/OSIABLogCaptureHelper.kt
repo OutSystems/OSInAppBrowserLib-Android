@@ -48,7 +48,6 @@ object OSIABLogCaptureHelper {
     private var shakeCount = 0
     private var lastShakeTimestamp = 0L
     private var lastShakeTriggerTimestamp = 0L
-    private var lastShakeLogTimestamp = 0L
 
     /**
      * Starts a `logcat` subprocess that tails the device log to a timestamped file
@@ -138,16 +137,6 @@ object OSIABLogCaptureHelper {
                     val gY = event.values[1] / SensorManager.GRAVITY_EARTH
                     val gZ = event.values[2] / SensorManager.GRAVITY_EARTH
                     val gForce = kotlin.math.sqrt(gX * gX + gY * gY + gZ * gZ)
-
-                    // RMET-5394 temporary diagnostic: confirms the listener is
-                    // receiving readings at all, and shows real-world gForce values
-                    // to calibrate SHAKE_THRESHOLD_GRAVITY against.
-                    val nowForLog = SystemClock.elapsedRealtime()
-                    if (nowForLog - lastShakeLogTimestamp > 150) {
-                        lastShakeLogTimestamp = nowForLog
-                        Log.d(LOG_TAG, "shake sensor gForce=$gForce")
-                    }
-
                     if (gForce < SHAKE_THRESHOLD_GRAVITY) return
 
                     val now = SystemClock.elapsedRealtime()
