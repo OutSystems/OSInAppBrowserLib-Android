@@ -1,0 +1,28 @@
+Since OSIABLogCaptureHelper runs inside the app process, it can only read logcat lines tagged with the app's own UID — Android restricts cross-UID log reads for regular apps. adb, running from your
+  computer as the shell user, isn't subject to that restriction and can see the whole system, including system_server's process-freezer decisions. Here's how to get that capture:
+
+  One-time setup
+  1. Make sure adb is installed (brew install android-platform-tools if you don't have it, or it's included with Android Studio's SDK platform-tools).
+  2. On the device: Settings → About phone → tap "Build number" 7 times to enable Developer options → Settings → Developer options → enable "USB debugging".
+  3. Connect the device via USB, then run adb devices — accept the "Allow USB debugging?" prompt on the device screen. It should list your device as device (not unauthorized).
+
+  Capturing during a repro
+  1. Clear the buffer right before you start, so the file only contains this run:
+  adb logcat -c
+  2. Start an unfiltered capture across all buffers (this is the key difference from the in-app tool — no UID filter, and -b all includes the system/events buffers where freezer activity gets logged):
+  adb logcat -v threadtime -b all > ~/Downloads/full_logcat_$(date +%s).txt
+  2. Leave this running in a terminal window.
+  3. Do the repro (open the InAppBrowser, deliberately take your time entering the card details past the ~1 minute mark, wait for/reach the freeze).
+  4. Once you've either seen the freeze or force-closed, go back to the terminal and press Ctrl+C to stop the capture.
+
+  Optional: raise freezer log verbosity
+  Some of the freezer's debug-level tracing may be gated behind a per-tag log level that isn't on by default. If the first capture doesn't show anything under CachedAppOptimizer, try this before repro'ing
+  again:
+  adb shell setprop log.tag.CachedAppOptimizer VERBOSE
+  adb shell setprop log.tag.OomAdjuster VERBOSE
+
+  What to grep for afterward (send me the file and I'll do this, or you can spot-check yourself):
+  grep -iE "CachedAppOptimizer|am_freeze|am_unfreeze|Freezing|Unfreezing|OomAdjuster|oom_adj" full_logcat_*.txt
+
+  One caveat: this file will contain the whole system's logs, not just PingoDoceExpress — much noisier than the app-scoped captures we've been using, so it'll need tighter time-window/PID filtering once we
+  have it (same PID numbers as the existing OSIABLogCaptureHelper files should still line up, since it's the same run).
