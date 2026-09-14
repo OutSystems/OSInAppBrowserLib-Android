@@ -46,6 +46,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import java.util.regex.PatternSyntaxException
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABKeepAliveService
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
@@ -193,13 +194,22 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         Log.d(LOG_TAG, "onCreate browserId=$browserId")
 
         // keep the main process out of the freezable state while the browser is in front,
-        // otherwise events queue and the app's close flow stalls until it unfreezes
+        // otherwise events queue and the app's close flow stalls until it unfreezes.
+        // RMET-5394: BIND_IMPORTANT added on top of BIND_AUTO_CREATE - the plain binding was
+        // enough to avoid the OS freezer, but not enough to guarantee normal scheduling once
+        // the main process wakes up to react to an event; a completion-page network call was
+        // observed failing (started, never got a chance to finish before something moved on)
+        // even with zero freeze/unfreeze events recorded for that session.
         if (isIsolatedProcess()) {
             val connection = object : ServiceConnection {
                 override fun onServiceConnected(name: ComponentName?, service: IBinder?) {}
                 override fun onServiceDisconnected(name: ComponentName?) {}
             }
-            bindService(Intent(this, OSIABKeepAliveService::class.java), connection, Context.BIND_AUTO_CREATE)
+            bindService(
+                Intent(this, OSIABKeepAliveService::class.java),
+                connection,
+                Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT
+            )
             keepAliveConnection = connection
         }
 
@@ -540,6 +550,22 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                 isFirstLoad = false
             } else if (!hasLoadError) {
                 sendWebViewEvent(OSIABEvents.BrowserPageNavigationCompleted(browserId, resolvedUrl))
+            }
+
+            // RMET-5394: close natively the moment an app-configured "done" pattern matches,
+            // independent of whether MainActivity's WebView JS is able to react to the event
+            // above - sendWebViewEvent() above is synchronous (see #59), so the broadcast is
+            // already in flight by the time finish() runs below.
+            val matchesSuccessPattern = resolvedUrl != null && options.successUrlPatterns?.any { pattern ->
+                try {
+                    Regex(pattern).containsMatchIn(resolvedUrl)
+                } catch (e: PatternSyntaxException) {
+                    Log.d(LOG_TAG, "Invalid successUrlPatterns regex '$pattern': ${e.message}")
+                    false
+                }
+            } == true
+            if (matchesSuccessPattern) {
+                finish()
             }
 
             if (url?.startsWith(PDF_VIEWER_URL_PREFIX) == true && options.clearCache) {
