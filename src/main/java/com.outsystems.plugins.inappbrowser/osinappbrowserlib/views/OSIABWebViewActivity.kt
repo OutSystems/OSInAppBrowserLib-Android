@@ -189,14 +189,38 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
 
         // keep the main process out of the freezable state while the browser is in front,
-        // otherwise events queue and the app's close flow stalls until it unfreezes
+        // otherwise events queue and the app's close flow stalls until it unfreezes.
+        // BIND_IMPORTANT is needed on top of BIND_AUTO_CREATE - the plain binding is enough
+        // to avoid the OS freezer, but not enough to guarantee normal scheduling once the
+        // main process wakes up to react to an event.
         if (isIsolatedProcess()) {
             val connection = object : ServiceConnection {
                 override fun onServiceConnected(name: ComponentName?, service: IBinder?) {}
                 override fun onServiceDisconnected(name: ComponentName?) {}
             }
-            bindService(Intent(this, OSIABKeepAliveService::class.java), connection, Context.BIND_AUTO_CREATE)
-            keepAliveConnection = connection
+            val bound = try {
+                bindService(
+                    Intent(this, OSIABKeepAliveService::class.java),
+                    connection,
+                    Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT
+                )
+            } catch (e: SecurityException) {
+                Log.w(LOG_TAG, "Not allowed to bind OSIABKeepAliveService: ${e.message}")
+                // bindService() registers the connection locally before the call that can
+                // throw this - unbind to release that local registration even though no
+                // actual binding was established.
+                try {
+                    unbindService(connection)
+                } catch (unbindException: Exception) {
+                    // Nothing was actually registered, ignore
+                }
+                false
+            }
+            if (bound) {
+                keepAliveConnection = connection
+            } else {
+                Log.w(LOG_TAG, "Failed to bind OSIABKeepAliveService - main process may be eligible for freezing")
+            }
         }
 
         // Register receiver for close commands from main process
