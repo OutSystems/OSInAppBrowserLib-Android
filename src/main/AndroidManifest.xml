@@ -49,6 +49,9 @@
                 android:resource="@xml/file_paths" />
         </provider>
 
+        <service
+            android:name=".OSIABKeepAliveService"
+            android:exported="false" />
     </application>
 
     <queries>
