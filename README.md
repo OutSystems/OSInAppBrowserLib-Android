@@ -20,6 +20,11 @@ Each is detailed in the following sections.
     - [Open a URL in a System Browser](#open-a-url-in-a-system-browser)
     - [Open a URL in a Web View](#open-a-url-in-a-web-view)
     - [Close](#close)
+- [Debug log capture (RMET-5394)](#debug-log-capture-rmet-5394)
+    - [Enabling capture](#enabling-capture)
+    - [Sharing log files](#sharing-log-files)
+    - [Removing log files](#removing-log-files)
+    - [What gets logged](#what-gets-logged)
 
 ## Motivation
 
@@ -79,3 +84,72 @@ fun close(completionHandler: (Boolean) -> Unit)
 
 Handles closing an opened browser. The method is composed of the following input parameters:
 - **completionHandler**: The callback with the result of closing the browser.
+
+## Debug log capture (RMET-5394)
+
+> This is a **debug-only diagnostic tool**, not part of the library's public API surface, and not intended for production builds. It exists to capture repro sessions for [RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394) (main process getting frozen while the isolated Web View is in the foreground) on devices/scenarios where staying attached via `adb` isn't practical - USB debugging suppresses the freeze under investigation, and Wi-Fi debugging has been unstable in practice.
+
+`OSIABLogCaptureHelper` (in `helpers/OSIABLogCaptureHelper.kt`) shells out to the device's `logcat` binary and tails the full device log - not just this library's own log lines, but everything logged under the app's UID (other plugins, host app code, etc.) - to a rotating set of files on disk, with no live debugger connection required.
+
+### Enabling capture
+
+Because the Web View runs in its own isolated process, capture needs to start as early as possible in **both** processes. Android calls `Application.onCreate()` independently in every process the app spawns (main process at launch, and again in the isolated process when it's created for the browser), so adding a single call there covers both:
+
+```kotlin
+class MyApplication : Application() {
+    override fun onCreate() {
+        super.onCreate()
+        OSIABLogCaptureHelper.start(this)
+        OSIABLogCaptureHelper.startShakeToShare(this) // see "Sharing log files" below
+    }
+
+    // optional but recommended: see "What gets logged" below
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        OSIABLogCaptureHelper.logTrimMemory(level)
+    }
+}
+```
+
+Register the custom `Application` class in the consuming app's manifest if it doesn't already declare one:
+
+```xml
+<application
+    android:name=".MyApplication"
+    ...>
+```
+
+Logs are written to `<cacheDir>/logs/oslog-<main|isolated>-<yyyyMMdd_HHmmss>.txt`, rotating every 10 MB per file. Files are **not** deleted automatically - only [`deleteLogs`](#removing-log-files) removes them - so remember to clear them between test sessions.
+
+Requires API 28+ (`Application.getProcessName()`); below that, capture still runs but can't distinguish the isolated process from the main one.
+
+### Sharing log files
+
+Call `OSIABLogCaptureHelper.shareLogs(context)` to open a standard share chooser (email, Drive, Slack, etc.) with every captured log file attached:
+
+```kotlin
+OSIABLogCaptureHelper.shareLogs(context)
+```
+
+Two built-in triggers cover most cases:
+- **Long-press the Close button** - `OSIABWebViewActivity`-only, so only reachable when the browser is open and the toolbar is shown (`showToolbar: true`).
+- **Shake the device** (2 shakes within ~3 seconds) - works anywhere in the app, not just inside the Web View, since `OSIABLogCaptureHelper.startShakeToShare(context)` registers a single accelerometer listener per process (see [Enabling capture](#enabling-capture)) rather than being tied to any one Activity's lifecycle. A hardware volume-key trigger was tried first, but on-device testing showed the OS intercepts volume key events before they ever reach the Activity, so it never fired reliably; a shake gesture reads the accelerometer directly and doesn't depend on Android's key/touch dispatch pipeline at all.
+
+You can still call `shareLogs(context)` directly from anywhere else convenient (e.g. temporarily added to app code) if neither of those fits your repro.
+
+### Removing log files
+
+Call `OSIABLogCaptureHelper.deleteLogs(context)` to delete every captured log file:
+
+```kotlin
+OSIABLogCaptureHelper.deleteLogs(context)
+```
+
+### What gets logged
+
+Beyond the raw `logcat` tail, a few signals are deliberately emitted to make the captured logs useful for diagnosing RMET-5394 specifically:
+
+- **`OSIABEvents` send/receive timestamps** - `broadcastEvent()` logs right before sending (from the isolated process, which never freezes), and the registered receiver logs immediately on `onReceive()` (in whichever process registered it, typically the main process). The gap between these two log lines is the most direct evidence of the main process being frozen - e.g. "sent at T, received at T+40s" - rather than something inferred indirectly.
+- **Activity lifecycle breadcrumbs** - `OSIABWebViewActivity.onCreate`/`onDestroy` log the `browserId` and (for `onDestroy`) `isFinishing`, and `OSIABEvents.registerReceiver`/`unregisterReceiver` log their ref-counted register/unregister transitions. Mainly for timeline correlation across the two processes' separate log files.
+- **`onTrimMemory` levels** - `OSIABLogCaptureHelper.logTrimMemory(level)` logs Android's own `ComponentCallbacks2.onTrimMemory()` signal, an early OS-native indicator of a process trending toward the cached/frozen state, ahead of an actual freeze taking effect. `OSIABWebViewActivity` already logs this for the isolated process; call it from the consuming app's own `Application.onTrimMemory()` (see [Enabling capture](#enabling-capture)) to get the same signal for the main process.
+- **WebView JS console messages** - `OSIABWebChromeClient.onConsoleMessage` bridges page `console.log`/`warn`/`error` output into the same log capture, so what the page believed happened (e.g. "payment complete, notifying app") can be correlated against when the native app actually reacted.

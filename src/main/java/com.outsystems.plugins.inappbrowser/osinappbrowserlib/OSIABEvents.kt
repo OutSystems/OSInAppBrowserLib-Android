@@ -4,6 +4,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -35,6 +36,11 @@ sealed class OSIABEvents : Serializable {
     ) : OSIABEvents()
 
     companion object {
+        // RMET-5394 debug logging tag: measures the gap between broadcastEvent() (sent
+        // from the isolated, never-frozen process) and onReceive() (received in the
+        // main process) - the most direct evidence of the main process being frozen.
+        private const val LOG_TAG = "OSIABEvents"
+
         const val EXTRA_BROWSER_ID = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.EXTRA_BROWSER_ID"
         const val ACTION_IAB_EVENT = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_IAB_EVENT"
         const val ACTION_CLOSE_WEBVIEW = "com.outsystems.plugins.inappbrowser.osinappbrowserlib.ACTION_CLOSE_WEBVIEW"
@@ -66,8 +72,11 @@ sealed class OSIABEvents : Serializable {
                             EXTRA_EVENT_DATA,
                             OSIABEvents::class.java
                         )
-                        event?.let {
-                            _events.tryEmit(it)
+                        if (event != null) {
+                            Log.d(LOG_TAG, "received ${event::class.simpleName} browserId=${event.browserId}${urlLogSuffix(event)}")
+                            _events.tryEmit(event)
+                        } else {
+                            Log.d(LOG_TAG, "received ACTION_IAB_EVENT with null/undecodable payload")
                         }
                     }
                 }
@@ -80,6 +89,7 @@ sealed class OSIABEvents : Serializable {
                 filter,
                 ContextCompat.RECEIVER_NOT_EXPORTED
             )
+            Log.d(LOG_TAG, "registerReceiver: registered (refCount=$receiverRefCount)")
         }
 
         /**
@@ -96,6 +106,7 @@ sealed class OSIABEvents : Serializable {
                 receiver?.let {
                     try {
                         context.applicationContext.unregisterReceiver(it)
+                        Log.d(LOG_TAG, "unregisterReceiver: unregistered")
                     } catch (e: Exception) {
                         // Receiver may not be registered, ignore
                     }
@@ -113,12 +124,20 @@ sealed class OSIABEvents : Serializable {
          * Only data-only events should be broadcast (BrowserPageLoaded, BrowserFinished, etc.).
          */
         fun broadcastEvent(context: Context, event: OSIABEvents) {
+            Log.d(LOG_TAG, "broadcastEvent: sending ${event::class.simpleName} browserId=${event.browserId}${urlLogSuffix(event)}")
             val intent = Intent(ACTION_IAB_EVENT).apply {
                 setPackage(context.packageName)
                 putExtra(EXTRA_EVENT_DATA, event)
             }
             context.sendBroadcast(intent)
         }
+
+        // RMET-5394 debug logging only: BrowserPageNavigationCompleted is the only
+        // event carrying a URL. Not logged by default (query params can carry
+        // session tokens), but needed here to tell whether a "successful" native
+        // navigation actually landed on the expected page.
+        private fun urlLogSuffix(event: OSIABEvents): String =
+            (event as? BrowserPageNavigationCompleted)?.url?.let { " url=$it" }.orEmpty()
     }
 
 }

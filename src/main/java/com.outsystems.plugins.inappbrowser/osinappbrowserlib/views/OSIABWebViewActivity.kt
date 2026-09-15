@@ -4,18 +4,22 @@ import android.Manifest
 import android.app.Application
 import android.app.Activity
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.content.ServiceConnection
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.IBinder
 import android.provider.MediaStore
 import android.util.Log
 import android.view.Gravity
 import android.view.View
+import android.webkit.ConsoleMessage
 import android.webkit.CookieManager
 import android.webkit.GeolocationPermissions
 import android.webkit.PermissionRequest
@@ -23,6 +27,7 @@ import android.webkit.ValueCallback
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceError
 import android.webkit.WebResourceRequest
+import android.webkit.WebResourceResponse
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import android.widget.Button
@@ -41,8 +46,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.isVisible
 import androidx.lifecycle.lifecycleScope
+import java.util.regex.PatternSyntaxException
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABEvents
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.OSIABKeepAliveService
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.R
+import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABLogCaptureHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.helpers.OSIABPdfHelper
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABToolbarPosition
 import com.outsystems.plugins.inappbrowser.osinappbrowserlib.models.OSIABWebViewOptions
@@ -72,6 +80,8 @@ open class OSIABWebViewActivity : AppCompatActivity() {
     private lateinit var browserId: String
 
     private var closeReceiver: BroadcastReceiver? = null
+
+    private var keepAliveConnection: ServiceConnection? = null
 
     // for the browserPageLoaded event, which we only want to trigger on the first URL loaded in the WebView
     private var isFirstLoad = true
@@ -139,6 +149,11 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         const val REQUEST_LOCATION_PERMISSION = 623
         const val REQUEST_CAMERA_PERMISSION = 624
         const val LOG_TAG = "OSIABWebViewActivity"
+        const val ISOLATED_PROCESS_SUFFIX = ":OSInAppBrowser"
+
+        private fun isIsolatedProcess(): Boolean =
+            Build.VERSION.SDK_INT >= Build.VERSION_CODES.P &&
+                Application.getProcessName().endsWith(ISOLATED_PROCESS_SUFFIX)
         val errorsToHandle = listOf(
             WebViewClient.ERROR_HOST_LOOKUP,
             WebViewClient.ERROR_UNSUPPORTED_SCHEME,
@@ -153,15 +168,12 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         }
 
         init {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                try {
-                    val processName = Application.getProcessName()
-                    if (processName.endsWith(":OSInAppBrowser")) {
-                        WebView.setDataDirectorySuffix("OSInAppBrowser")
-                    }
-                } catch (e: Exception) {
-                    Log.d(LOG_TAG, "Suffix already set or error: ${e.message}")
+            try {
+                if (isIsolatedProcess()) {
+                    WebView.setDataDirectorySuffix("OSInAppBrowser")
                 }
+            } catch (e: Exception) {
+                Log.d(LOG_TAG, "Suffix already set or error: ${e.message}")
             }
         }
     }
@@ -179,6 +191,27 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         onBackPressedDispatcher.addCallback(this, onBackPressedCallback)
 
         browserId = intent.getStringExtra(OSIABEvents.EXTRA_BROWSER_ID) ?: ""
+        Log.d(LOG_TAG, "onCreate browserId=$browserId")
+
+        // keep the main process out of the freezable state while the browser is in front,
+        // otherwise events queue and the app's close flow stalls until it unfreezes.
+        // RMET-5394: BIND_IMPORTANT added on top of BIND_AUTO_CREATE - the plain binding was
+        // enough to avoid the OS freezer, but not enough to guarantee normal scheduling once
+        // the main process wakes up to react to an event; a completion-page network call was
+        // observed failing (started, never got a chance to finish before something moved on)
+        // even with zero freeze/unfreeze events recorded for that session.
+        if (isIsolatedProcess()) {
+            val connection = object : ServiceConnection {
+                override fun onServiceConnected(name: ComponentName?, service: IBinder?) {}
+                override fun onServiceDisconnected(name: ComponentName?) {}
+            }
+            bindService(
+                Intent(this, OSIABKeepAliveService::class.java),
+                connection,
+                Context.BIND_AUTO_CREATE or Context.BIND_IMPORTANT
+            )
+            keepAliveConnection = connection
+        }
 
         // Register receiver for close commands from main process
         closeReceiver = object : BroadcastReceiver() {
@@ -231,6 +264,13 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         closeButton.setOnClickListener {
             finish()
         }
+        // RMET-5394 debug build only: long-press Close to share captured logs.
+        // Lives here (not tied to openWebView) because this activity's process is
+        // the one guaranteed to still be responsive even if the main process is frozen.
+        closeButton.setOnLongClickListener {
+            OSIABLogCaptureHelper.shareLogs(this)
+            true
+        }
 
         if (options.showToolbar)
             updateToolbar(
@@ -268,6 +308,7 @@ open class OSIABWebViewActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        Log.d(LOG_TAG, "onDestroy browserId=$browserId isFinishing=$isFinishing")
         // sent here instead of onStop, which is skipped when finish() happens on an already stopped activity
         if (isFinishing) {
             sendWebViewEvent(OSIABEvents.BrowserFinished(browserId))
@@ -280,6 +321,14 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             }
             closeReceiver = null
         }
+        keepAliveConnection?.let {
+            try {
+                unbindService(it)
+            } catch (e: Exception) {
+                // Service may not be bound, ignore
+            }
+            keepAliveConnection = null
+        }
         webView.destroy()
         super.onDestroy()
     }
@@ -289,6 +338,13 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         if (options.pauseMedia) {
             webView.onResume()
         }
+    }
+
+    // RMET-5394 debug build only: an early, OS-native signal of this (isolated)
+    // process trending toward the cached/frozen state, ahead of an actual freeze.
+    override fun onTrimMemory(level: Int) {
+        super.onTrimMemory(level)
+        OSIABLogCaptureHelper.logTrimMemory(level)
     }
 
     private fun handleLoadUrl(url: String, additionalHttpHeaders: Map<String, String>? = null) {
@@ -496,6 +552,22 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                 sendWebViewEvent(OSIABEvents.BrowserPageNavigationCompleted(browserId, resolvedUrl))
             }
 
+            // RMET-5394: close natively the moment an app-configured "done" pattern matches,
+            // independent of whether MainActivity's WebView JS is able to react to the event
+            // above - sendWebViewEvent() above is synchronous (see #59), so the broadcast is
+            // already in flight by the time finish() runs below.
+            val matchesSuccessPattern = resolvedUrl != null && options.successUrlPatterns?.any { pattern ->
+                try {
+                    Regex(pattern).containsMatchIn(resolvedUrl)
+                } catch (e: PatternSyntaxException) {
+                    Log.d(LOG_TAG, "Invalid successUrlPatterns regex '$pattern': ${e.message}")
+                    false
+                }
+            } == true
+            if (matchesSuccessPattern) {
+                finish()
+            }
+
             if (url?.startsWith(PDF_VIEWER_URL_PREFIX) == true && options.clearCache) {
                 webView.evaluateJavascript(
                     "localStorage.clear(); sessionStorage.clear();", null
@@ -558,6 +630,16 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             // let all errors first be handled by the WebView default error handling mechanism
             super.onReceivedError(view, request, error)
 
+            // RMET-5394 debug build only: log every resource-level network error (not
+            // just the main-frame ones handled below), since this is the native error
+            // code/description behind failures JS can only see as a generic rejected
+            // fetch/promise (e.g. "TypeError: Failed to fetch").
+            Log.d(
+                LOG_TAG,
+                "onReceivedError url=${request?.url} isForMainFrame=${request?.isForMainFrame} " +
+                    "errorCode=${error?.errorCode} description=${error?.description}"
+            )
+
             // We only want to show the error screen for some errors (e.g. no internet)
             // e.g. we don't want to show it for an error where an image fails to load.
             // Also, we only want to show the error screen for errors in loading the main page,
@@ -568,6 +650,37 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                     showErrorScreen()
                 }
             }
+        }
+
+        // RMET-5394 debug build only: HTTP-level errors (4xx/5xx responses) for any
+        // resource, distinct from onReceivedError (which covers network/transport
+        // failures like DNS or connection errors, not server-returned error statuses).
+        override fun onReceivedHttpError(
+            view: WebView?,
+            request: WebResourceRequest?,
+            errorResponse: WebResourceResponse?
+        ) {
+            super.onReceivedHttpError(view, request, errorResponse)
+            Log.d(
+                LOG_TAG,
+                "onReceivedHttpError url=${request?.url} statusCode=${errorResponse?.statusCode} " +
+                    "reasonPhrase=${errorResponse?.reasonPhrase}"
+            )
+        }
+
+        // RMET-5394 debug build only: logs every request the WebView makes - page
+        // navigations, scripts, images, and crucially any fetch()/XHR calls the page's
+        // own JS makes - since those aren't otherwise visible to native code. Called
+        // on a background thread; only observes, never intercepts (always returns null
+        // to let the WebView handle the request normally).
+        override fun shouldInterceptRequest(
+            view: WebView?,
+            request: WebResourceRequest?
+        ): WebResourceResponse? {
+            request?.let {
+                Log.d(LOG_TAG, "request: ${it.method} ${it.url}")
+            }
+            return super.shouldInterceptRequest(view, request)
         }
 
         override fun doUpdateVisitedHistory(view: WebView?, url: String?, isReload: Boolean) {
@@ -627,6 +740,19 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             request?.let {
                 handlePermissionRequest(it)
             }
+        }
+
+        // RMET-5394 debug build only: bridge page console.log/warn/error into the
+        // native log capture, to correlate what the page believed happened (e.g.
+        // "payment complete, notifying app") against when the app actually reacted.
+        override fun onConsoleMessage(consoleMessage: ConsoleMessage?): Boolean {
+            consoleMessage?.let {
+                Log.d(
+                    LOG_TAG,
+                    "console[${it.messageLevel()}] ${it.message()} (${it.sourceId()}:${it.lineNumber()})"
+                )
+            }
+            return false
         }
 
         // specifically handle geolocation permission
