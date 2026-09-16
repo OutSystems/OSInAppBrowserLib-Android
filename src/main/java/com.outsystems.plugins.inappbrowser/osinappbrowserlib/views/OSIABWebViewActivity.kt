@@ -54,6 +54,7 @@ import java.io.IOException
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.regex.PatternSyntaxException
 
 open class OSIABWebViewActivity : AppCompatActivity() {
 
@@ -494,6 +495,22 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                 isFirstLoad = false
             } else if (!hasLoadError) {
                 sendWebViewEvent(OSIABEvents.BrowserPageNavigationCompleted(browserId, resolvedUrl))
+            }
+
+            // RMET-5394: close natively the moment an app-configured "done" pattern matches,
+            // independent of whether MainActivity's WebView JS is able to react to the event
+            // above - sendWebViewEvent() above is synchronous (see #59), so the broadcast is
+            // already in flight by the time finish() runs below.
+            val matchesSuccessPattern = resolvedUrl != null && options.successUrlPatterns?.any { pattern ->
+                try {
+                    Regex(pattern).containsMatchIn(resolvedUrl)
+                } catch (e: PatternSyntaxException) {
+                    Log.d(LOG_TAG, "Invalid successUrlPatterns regex '$pattern': ${e.message}")
+                    false
+                }
+            } == true
+            if (matchesSuccessPattern) {
+                finish()
             }
 
             if (url?.startsWith(PDF_VIEWER_URL_PREFIX) == true && options.clearCache) {
