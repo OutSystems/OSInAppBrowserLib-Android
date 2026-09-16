@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fire `browserClosed` only when the Custom Tab actually terminates, using `ActivityResultLauncher` instead of inferring closure from `TAB_HIDDEN`. Prevents the event from firing prematurely when the tab is minimized to Picture-in-Picture or the app is backgrounded.
 
+## [2.0.2]
+
+### Fixes
+
+- Send the `BrowserFinished` event from `onDestroy`, so it is no longer lost when the WebView is closed while the app is in the background. Previously the event was only sent from `onStop`, which Android skips when `finish()` is called on an already stopped activity, leaving the browser closed without notifying the app and blocking any new browser from opening until app restart ([RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394)).
+
 ## [2.0.1]
 
 ### Fixes

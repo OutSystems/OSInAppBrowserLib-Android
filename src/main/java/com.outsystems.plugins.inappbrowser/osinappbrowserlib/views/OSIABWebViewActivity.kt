@@ -267,14 +267,11 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         }
     }
 
-    override fun onStop() {
-        super.onStop()
+    override fun onDestroy() {
+        // sent here instead of onStop, which is skipped when finish() happens on an already stopped activity
         if (isFinishing) {
             sendWebViewEvent(OSIABEvents.BrowserFinished(browserId))
         }
-    }
-
-    override fun onDestroy() {
         closeReceiver?.let {
             try {
                 unregisterReceiver(it)
@@ -981,13 +978,11 @@ open class OSIABWebViewActivity : AppCompatActivity() {
         }
     }
 
-    /** Responsible for sending events using Kotlin Flows.
+    /** Responsible for sending events to the main process.
      * @param event object to broadcast to the event bus
      */
     private fun sendWebViewEvent(event: OSIABEvents) {
-        lifecycleScope.launch {
-            OSIABEvents.broadcastEvent(this@OSIABWebViewActivity, event)
-        }
+        OSIABEvents.broadcastEvent(this, event)
     }
 
     private fun showErrorScreen() {
