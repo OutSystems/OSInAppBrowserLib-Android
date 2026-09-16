@@ -206,20 +206,20 @@ open class OSIABWebViewActivity : AppCompatActivity() {
                 )
             } catch (e: SecurityException) {
                 Log.w(LOG_TAG, "Not allowed to bind OSIABKeepAliveService: ${e.message}")
-                // bindService() registers the connection locally before the call that can
-                // throw this - unbind to release that local registration even though no
-                // actual binding was established.
-                try {
-                    unbindService(connection)
-                } catch (unbindException: Exception) {
-                    // Nothing was actually registered, ignore
-                }
                 false
             }
             if (bound) {
                 keepAliveConnection = connection
             } else {
                 Log.w(LOG_TAG, "Failed to bind OSIABKeepAliveService - main process may be eligible for freezing")
+                // bindService() registers the connection locally before it can fail - whether
+                // it throws or just returns false - so unbind to release that local
+                // registration even though no actual binding was established.
+                try {
+                    unbindService(connection)
+                } catch (e: Exception) {
+                    // Nothing was actually registered, ignore
+                }
             }
         }
 
