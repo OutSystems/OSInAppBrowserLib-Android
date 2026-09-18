@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Add `successUrlPatterns` WebView option: a list of regex patterns checked against each finished page load, closing the browser natively as soon as one matches, independent of whether the host app's WebView is able to react to the completion event ([RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394)).
 
+## [2.0.3]
+
+### Fixes
+
+- Preserve all `accept` MIME types and extensions from the WebView file chooser instead of collapsing them into a single guessed category, so inputs like `accept="image/*,application/pdf,application/msword"` correctly offer every accepted type in the picker instead of silently dropping non-image/video types. Also fixes a bug where combining `<input capture>` with a documents-only `accept` list would silently cancel the file chooser instead of opening it ([RMET-5438](https://outsystemsrd.atlassian.net/browse/RMET-5438) + [RPM-7140](https://outsystemsrd.atlassian.net/browse/RPM-7140)).
+
 ## [2.0.2]
 
 ### Fixes
