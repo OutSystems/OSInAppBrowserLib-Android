@@ -17,5 +17,8 @@ data class OSIABWebViewOptions(
     @SerializedName("hardwareBack") val hardwareBack: Boolean = true,
     @SerializedName("pauseMedia") val pauseMedia: Boolean = true,
     @SerializedName("customUserAgent") val customUserAgent: String? = null,
-    @SerializedName("isIsolated") val isIsolated: Boolean = true
+    @SerializedName("isIsolated") val isIsolated: Boolean = true,
+    // RMET-5394: regex patterns checked against each finished page load; a match closes the
+    // browser natively (no dependency on MainActivity's WebView JS being able to react).
+    @SerializedName("successUrlPatterns") val successUrlPatterns: List<String>? = null
 ) : OSIABOptions, Serializable
