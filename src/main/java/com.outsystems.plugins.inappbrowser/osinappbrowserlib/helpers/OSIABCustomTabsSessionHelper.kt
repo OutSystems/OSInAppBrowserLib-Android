@@ -62,54 +62,22 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
         flowHelper: OSIABFlowHelperInterface,
     ) : CustomTabsCallback() {
 
-        private var isCustomTabsActivityOnTop = false
-        private var pendingTabHiddenEvent = false
-
         init {
             var browserEventsJob: Job? = null
-
             browserEventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
-                if(event is OSIABEvents.OSIABCustomTabsEvent) {
-                    when (event.action) {
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_RESUMED -> {
-                            isCustomTabsActivityOnTop = true
-                            if (pendingTabHiddenEvent) {
-                                pendingTabHiddenEvent = false
-                                lifecycleScope.launch {
-                                    OSIABEvents.postEvent(OSIABEvents.BrowserFinished(browserId))
-                                }
-                            }
-                        }
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_PAUSED -> {
-                            isCustomTabsActivityOnTop = false
-                            pendingTabHiddenEvent = false
-                        }
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED -> {
-                            browserEventsJob?.cancel()
-                        }
-                    }
+                if (event is OSIABEvents.OSIABCustomTabsEvent
+                    && event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                    browserEventsJob?.cancel()
                 }
             }
         }
 
         override fun onNavigationEvent(navigationEvent: Int, extras: Bundle?) {
             super.onNavigationEvent(navigationEvent, extras)
-            val browserEvent = when (navigationEvent) {
-                NAVIGATION_FINISHED -> OSIABEvents.BrowserPageLoaded(browserId)
-                TAB_HIDDEN -> {
-                    if(isCustomTabsActivityOnTop) {
-                        OSIABEvents.BrowserFinished(browserId)
-                    }
-                    else {
-                        // App not open but custom tabs is hidden (home button, recent apps, etc.)
-                        pendingTabHiddenEvent = true
-                        return
-                    }
+            if (navigationEvent == NAVIGATION_FINISHED) {
+                lifecycleScope.launch {
+                    OSIABEvents.postEvent(OSIABEvents.BrowserPageLoaded(browserId))
                 }
-                else -> return
-            }
-            lifecycleScope.launch {
-                OSIABEvents.postEvent(browserEvent)
             }
         }
     }
