@@ -4,7 +4,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [2.0.4]
+## [2.1.0]
+
+### Features
+
+- Add `successUrlPatterns` WebView option: a list of regex patterns checked against each finished page load, closing the browser natively as soon as one matches, independent of whether the host app's WebView is able to react to the completion event ([RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394)).
 
 ### Fixes
 
