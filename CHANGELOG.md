@@ -10,6 +10,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fire `browserClosed` only when the Custom Tab actually terminates, using `ActivityResultLauncher` instead of inferring closure from `TAB_HIDDEN`. Prevents the event from firing prematurely when the tab is minimized to Picture-in-Picture or the app is backgrounded.
 
+## [2.0.4]
+
+### Fixes
+
+- Keep the main app process active while the WebView is in the foreground, by binding it to the WebView's process. Without this, Android can freeze the main process during a browser session, so browser events stop being processed and the app never reacts to the page finishing ([RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394)).
+
 ## [2.0.3]
 
 ### Fixes
