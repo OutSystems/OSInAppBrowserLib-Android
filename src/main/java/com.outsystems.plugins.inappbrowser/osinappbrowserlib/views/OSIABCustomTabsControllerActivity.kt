@@ -1,6 +1,7 @@
 package com.outsystems.plugins.inappbrowser.osinappbrowserlib.views
 
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.result.ActivityResultLauncher
@@ -30,6 +31,7 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
 
     private var customTabsLauncher: ActivityResultLauncher<Intent>? = null
     private var hasLaunchedCustomTabs = false
+    private var isFirstResume = true
 
 
     private fun setup(intent: Intent) {
@@ -70,6 +72,21 @@ class OSIABCustomTabsControllerActivity: AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setup(intent)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // On Android <14 the ActivityResult callback is not reliably delivered
+        // when the Custom Tab is dismissed from PiP, leaving this controller
+        // stranded on top of the task and blocking subsequent open() calls.
+        // Finishing on the second resume (fires when control returns from the
+        // Custom Tab) releases the task. Skipped on 14+ where the
+        // ActivityResult callback handles it.
+        if (isFirstResume) {
+            isFirstResume = false
+        } else if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            finish()
+        }
     }
 
     override fun onDestroy() {

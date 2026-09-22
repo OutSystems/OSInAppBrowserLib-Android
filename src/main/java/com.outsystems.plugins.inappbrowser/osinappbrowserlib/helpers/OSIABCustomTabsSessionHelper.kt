@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
@@ -77,6 +78,25 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
             if (navigationEvent == NAVIGATION_FINISHED) {
                 lifecycleScope.launch {
                     OSIABEvents.postEvent(OSIABEvents.BrowserPageLoaded(browserId))
+                }
+            }
+        }
+
+        override fun onMinimized(extras: Bundle) {
+            super.onMinimized(extras)
+            // On Android <14 the ActivityResult callback is not reliably
+            // delivered when the Custom Tab is dismissed from PiP, so we
+            // notify listeners as the Custom Tab enters PiP as a compromise.
+            // Skipped on 14+ where the ActivityResult callback handles it.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                lifecycleScope.launch {
+                    OSIABEvents.postEvent(
+                        OSIABEvents.OSIABCustomTabsEvent(
+                            browserId = browserId,
+                            action = OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED,
+                            context = null
+                        )
+                    )
                 }
             }
         }
