@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixes
 
-- Fire `browserClosed` only when the Custom Tab actually terminates, using `ActivityResultLauncher` instead of inferring closure from `TAB_HIDDEN`. Prevents the event from firing prematurely when the tab is minimized to Picture-in-Picture or the app is backgrounded. This fix applies to Android 14 and higher; on older versions the previous behavior is preserved because the `ActivityResult` callback is not reliably delivered when the tab is dismissed from Picture-in-Picture.
+- Fire `browserClosed` only when the Custom Tab actually terminates, using `ActivityResultLauncher` instead of inferring closure from `TAB_HIDDEN`. Prevents the event from firing prematurely when the tab is minimized to Picture-in-Picture or the app is backgrounded. This fix applies to Android 14 and higher, on older versions the previous behavior is preserved because the `ActivityResult` callback is not reliably delivered when the tab is dismissed from Picture-in-Picture.
 
 ## [2.0.4]
 
