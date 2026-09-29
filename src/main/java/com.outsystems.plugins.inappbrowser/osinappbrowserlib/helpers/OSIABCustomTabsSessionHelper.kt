@@ -7,6 +7,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import androidx.browser.customtabs.CustomTabsCallback
 import androidx.browser.customtabs.CustomTabsClient
@@ -62,54 +63,41 @@ class OSIABCustomTabsSessionHelper: OSIABCustomTabsSessionHelperInterface {
         flowHelper: OSIABFlowHelperInterface,
     ) : CustomTabsCallback() {
 
-        private var isCustomTabsActivityOnTop = false
-        private var pendingTabHiddenEvent = false
-
         init {
             var browserEventsJob: Job? = null
-
             browserEventsJob = flowHelper.listenToEvents(browserId, lifecycleScope) { event ->
-                if(event is OSIABEvents.OSIABCustomTabsEvent) {
-                    when (event.action) {
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_RESUMED -> {
-                            isCustomTabsActivityOnTop = true
-                            if (pendingTabHiddenEvent) {
-                                pendingTabHiddenEvent = false
-                                lifecycleScope.launch {
-                                    OSIABEvents.postEvent(OSIABEvents.BrowserFinished(browserId))
-                                }
-                            }
-                        }
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_PAUSED -> {
-                            isCustomTabsActivityOnTop = false
-                            pendingTabHiddenEvent = false
-                        }
-                        OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED -> {
-                            browserEventsJob?.cancel()
-                        }
-                    }
+                if (event is OSIABEvents.OSIABCustomTabsEvent
+                    && event.action == OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED) {
+                    browserEventsJob?.cancel()
                 }
             }
         }
 
         override fun onNavigationEvent(navigationEvent: Int, extras: Bundle?) {
             super.onNavigationEvent(navigationEvent, extras)
-            val browserEvent = when (navigationEvent) {
-                NAVIGATION_FINISHED -> OSIABEvents.BrowserPageLoaded(browserId)
-                TAB_HIDDEN -> {
-                    if(isCustomTabsActivityOnTop) {
-                        OSIABEvents.BrowserFinished(browserId)
-                    }
-                    else {
-                        // App not open but custom tabs is hidden (home button, recent apps, etc.)
-                        pendingTabHiddenEvent = true
-                        return
-                    }
+            if (navigationEvent == NAVIGATION_FINISHED) {
+                lifecycleScope.launch {
+                    OSIABEvents.postEvent(OSIABEvents.BrowserPageLoaded(browserId))
                 }
-                else -> return
             }
-            lifecycleScope.launch {
-                OSIABEvents.postEvent(browserEvent)
+        }
+
+        override fun onMinimized(extras: Bundle) {
+            super.onMinimized(extras)
+            // On Android <14 the ActivityResult callback is not reliably
+            // delivered when the Custom Tab is dismissed from PiP, so we
+            // notify listeners as the Custom Tab enters PiP as a compromise.
+            // Skipped on 14+ where the ActivityResult callback handles it.
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                lifecycleScope.launch {
+                    OSIABEvents.postEvent(
+                        OSIABEvents.OSIABCustomTabsEvent(
+                            browserId = browserId,
+                            action = OSIABCustomTabsControllerActivity.EVENT_CUSTOM_TABS_DESTROYED,
+                            context = null
+                        )
+                    )
+                }
             }
         }
     }
