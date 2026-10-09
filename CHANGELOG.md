@@ -4,17 +4,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [2.1.0]
 
-### Fixes
+### Features
 
-- Fire `browserClosed` only when the Custom Tab actually terminates, using `ActivityResultLauncher` instead of inferring closure from `TAB_HIDDEN`. Prevents the event from firing prematurely when the tab is minimized to Picture-in-Picture or the app is backgrounded. This fix applies to Android 14 and higher, on older versions the previous behavior is preserved because the `ActivityResult` callback is not reliably delivered when the tab is dismissed from Picture-in-Picture.
-
-## [2.0.4]
+- Add `successUrlPatterns` WebView option: a list of regex patterns checked against each finished page load, closing the browser natively as soon as one matches, independent of whether the host app's WebView is able to react to the completion event ([RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394)).
 
 ### Fixes
 
 - Keep the main app process active while the WebView is in the foreground, by binding it to the WebView's process. Without this, Android can freeze the main process during a browser session, so browser events stop being processed and the app never reacts to the page finishing ([RMET-5394](https://outsystemsrd.atlassian.net/browse/RMET-5394)).
+- Fire `browserClosed` only when the Custom Tab actually terminates, using `ActivityResultLauncher` instead of inferring closure from `TAB_HIDDEN`. Prevents the event from firing prematurely when the tab is minimized to Picture-in-Picture or the app is backgrounded. This fix applies to Android 14 and higher, on older versions the previous behavior is preserved because the `ActivityResult` callback is not reliably delivered when the tab is dismissed from Picture-in-Picture.
 
 ## [2.0.3]
 
