@@ -1142,29 +1142,51 @@ open class OSIABWebViewActivity : AppCompatActivity() {
             return
         }
 
-        if (ContextCompat.checkSelfPermission(
-                this,
-                Manifest.permission.ACCESS_FINE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED &&
-            ContextCompat.checkSelfPermission(
-                this,
+        // only request the location permissions the host app declared
+        //  if the app has no declared permissions then the callback must be responded with denied
+        val declaredPermissions = getDeclaredPermissions()
+        val permissionsToRequest = when {
+            // fine must be requested together with coarse (Android 12+)
+            Manifest.permission.ACCESS_FINE_LOCATION in declaredPermissions -> arrayOf(
+                Manifest.permission.ACCESS_FINE_LOCATION,
                 Manifest.permission.ACCESS_COARSE_LOCATION
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
+            )
+            Manifest.permission.ACCESS_COARSE_LOCATION in declaredPermissions -> arrayOf(
+                Manifest.permission.ACCESS_COARSE_LOCATION
+            )
+            else -> {
+                callback.invoke(origin, false, false)
+                return
+            }
+        }
 
+        // only one of the requested permissions needs to be granted
+        val isAnyGranted = permissionsToRequest.any {
+            ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
+        }
+        if (isAnyGranted) {
+            callback.invoke(origin, true, false)
+        } else {
             ActivityCompat.requestPermissions(
                 this,
-                arrayOf(
-                    Manifest.permission.ACCESS_FINE_LOCATION,
-                    Manifest.permission.ACCESS_COARSE_LOCATION
-                ),
+                permissionsToRequest,
                 REQUEST_LOCATION_PERMISSION
             )
             geolocationCallback = callback
             geolocationOrigin = origin
+        }
+    }
 
-        } else {
-            callback.invoke(origin, true, false)
+    /**
+     * @return the permissions declared in the merged manifest of the host app
+     */
+    private fun getDeclaredPermissions(): Set<String> {
+        return try {
+            packageManager.getPackageInfo(packageName, PackageManager.GET_PERMISSIONS)
+                .requestedPermissions.orEmpty().toSet()
+        } catch (e: PackageManager.NameNotFoundException) {
+            Log.d(LOG_TAG, "Error getting the declared permissions. Exception: ${e.message}")
+            emptySet()
         }
     }
 
