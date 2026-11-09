@@ -27,12 +27,13 @@ This library is to be used by the InAppBrowser Plugin for [OutSystems' Cordova P
 
 ## Usage
 
+> Replace ${version to use} below with the version you want to use. Check the Releases page for available versions.
+
 In your app-level gradle file, import the `OSInAppBrowserLib` library like so:
 
     dependencies {
-    	implementation("com.github.outsystems:osinappbrowser-android:1.0.0@aar")
+    	implementation("com.github.outsystems:osinappbrowser-android:${version to use}@aar")
 	}
-
 
 ## Methods
 
