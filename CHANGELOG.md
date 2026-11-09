@@ -4,11 +4,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [3.0.0]
+
+### Fixes
+
+- Stop declaring `ACCESS_COARSE_LOCATION` and `ACCESS_FINE_LOCATION` in the library manifest, and only request the location permissions that the host app declared ([RMET-5643](https://outsystemsrd.atlassian.net/browse/RMET-5643)).
 
 ### Chores
 
 - Update dependencies and build tooling (AGP 8.13.0, androidx libraries, coroutines 1.9.0, gson, test libraries).
+
+### BREAKING CHANGES
+
+- Location access for pages loaded in the WebView no longer works by default. Apps that need it must declare `ACCESS_COARSE_LOCATION` and/or `ACCESS_FINE_LOCATION` in their own manifest. If neither is declared, geolocation requests from pages are denied.
 
 ## [2.1.0]
 
