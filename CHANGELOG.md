@@ -6,6 +6,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [2.1.1]
+
 ### Chores
 
 - Update dependencies and build tooling (AGP 8.13.0, androidx libraries, coroutines 1.9.0, gson, test libraries).
